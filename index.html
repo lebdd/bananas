@@ -241,6 +241,60 @@
   }
   .claim-beta-btn:hover{background:#f7f0ff;}
 
+  .staff-badge{
+    display:inline-flex;align-items:center;
+    background:#eb4b4b;color:#ffffff;
+    font-size:10px;font-weight:800;letter-spacing:0.04em;
+    padding:4px 10px;border-radius:100px;
+  }
+  .staff-btn{
+    background:#2a1010;border:2px solid #eb4b4b;color:#ffb3b3;
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;
+    padding:8px 14px;border-radius:100px;cursor:pointer;
+    display:flex;align-items:center;gap:6px;
+  }
+  .staff-btn:hover{background:#3a1414;}
+  .staff-btn svg{width:16px;height:16px;}
+
+  .staff-lookup{display:flex;gap:10px;margin-top:16px;}
+  .staff-lookup input{
+    flex:1;border:2px solid var(--border);border-radius:10px;padding:10px 12px;
+    font-family:'Nunito',sans-serif;font-size:14px;background:var(--surface);color:var(--ink);
+  }
+  .staff-lookup input:focus{outline:none;border-color:#eb4b4b;}
+  .staff-lookup button{
+    background:#eb4b4b;color:#fff;border:none;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:14px;
+    padding:0 18px;border-radius:10px;cursor:pointer;white-space:nowrap;
+  }
+  .staff-result{
+    margin-top:18px;background:var(--bg);border:2px solid var(--border);border-radius:12px;
+    padding:16px;
+  }
+  .staff-result .sr-name{font-weight:800;color:var(--brown);font-size:15px;display:flex;align-items:center;gap:8px;}
+  .staff-result .sr-stats{color:var(--muted);font-size:12px;margin-top:4px;}
+  .staff-action{margin-top:14px;padding-top:14px;border-top:1px solid var(--border);}
+  .staff-action label{font-size:12px;font-weight:700;color:var(--muted);display:block;margin-bottom:6px;}
+  .staff-action-row{display:flex;gap:8px;}
+  .staff-action-row input, .staff-action-row select{
+    flex:1;border:2px solid var(--border);border-radius:8px;padding:8px 10px;
+    font-family:'Nunito',sans-serif;font-size:13px;background:var(--surface);color:var(--ink);
+  }
+  .staff-action-row button{
+    background:var(--yellow);color:var(--brown);border:none;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:13px;
+    padding:0 14px;border-radius:8px;cursor:pointer;white-space:nowrap;
+  }
+  .staff-ban-btn{
+    width:100%;margin-top:14px;
+    background:none;border:2px solid #eb4b4b;color:#eb4b4b;
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;
+    padding:10px 0;border-radius:8px;cursor:pointer;
+  }
+  .staff-ban-btn:hover{background:#fff0f0;}
+  .staff-ban-btn.unban{border-color:var(--yellow-deep);color:var(--yellow-deep);}
+  .staff-ban-btn.unban:hover{background:#fff8e8;}
+
   .trades-btn{
     position:relative;
     background:var(--surface);border:2px solid var(--border);color:var(--brown);
@@ -401,6 +455,10 @@
         <svg viewBox="0 0 48 48" fill="none"><path d="M8 18h26M28 12l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M40 30H14M20 24l-6 6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
         Trades
       </button>
+      <button class="staff-btn hidden" id="openStaffBtn">
+        <svg viewBox="0 0 48 48" fill="none"><path d="M24 5l16 7v10c0 10-7 17-16 21-9-4-16-11-16-21V12z" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round" fill="none"/><path d="M17 24l5 5 10-11" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        Staff
+      </button>
       <button class="logout-btn" id="logoutBtn">Log out</button>
     </div>
   </div>
@@ -481,7 +539,7 @@
       <div class="profile-header">
         <div id="profileIcon"></div>
         <div>
-          <div class="p-name-row"><span class="p-name" id="profileName"></span><span class="beta-badge hidden" id="profileBetaBadge">BETA</span></div>
+          <div class="p-name-row"><span class="p-name" id="profileName"></span><span class="staff-badge hidden" id="profileStaffBadge">STAFF</span><span class="beta-badge hidden" id="profileBetaBadge">BETA</span></div>
           <div class="p-score" id="profileScore"></div>
         </div>
       </div>
@@ -498,7 +556,7 @@
     <div class="profile-header">
       <div id="myProfileIcon"></div>
       <div>
-        <div class="p-name-row"><span class="p-name" id="myProfileName"></span><span class="beta-badge hidden" id="myBetaBadge">BETA</span></div>
+        <div class="p-name-row"><span class="p-name" id="myProfileName"></span><span class="staff-badge hidden" id="myStaffBadge">STAFF</span><span class="beta-badge hidden" id="myBetaBadge">BETA</span></div>
         <div class="p-score" id="myProfileScore"></div>
         <button class="claim-beta-btn hidden" id="claimBetaBtn">Claim beta tag</button>
       </div>
@@ -549,6 +607,46 @@
     <h2>Inventory</h2>
     <p>Your owned skins. Tap one to equip it.</p>
     <div class="skin-grid" id="inventoryGrid" style="margin-top:18px;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="staffModal">
+  <div class="modal-card">
+    <button class="modal-close" id="closeStaffBtn" aria-label="Close">✕</button>
+    <h2>Staff panel</h2>
+    <p>Look up a player by username to manage their account.</p>
+
+    <div class="staff-lookup">
+      <input id="staffLookupInput" type="text" placeholder="username" maxlength="20">
+      <button id="staffLookupBtn">Look up</button>
+    </div>
+    <div class="friend-error" id="staffError"></div>
+
+    <div class="staff-result hidden" id="staffResult">
+      <div class="sr-name">
+        <span id="staffResultName"></span>
+        <span class="staff-badge hidden" id="staffResultStaffTag">STAFF</span>
+      </div>
+      <div class="sr-stats" id="staffResultStats"></div>
+
+      <div class="staff-action">
+        <label>Give peels</label>
+        <div class="staff-action-row">
+          <input id="staffPeelsInput" type="number" min="1" placeholder="amount">
+          <button id="staffGivePeelsBtn">Give</button>
+        </div>
+      </div>
+
+      <div class="staff-action">
+        <label>Give skin</label>
+        <div class="staff-action-row">
+          <select id="staffSkinSelect"></select>
+          <button id="staffGiveSkinBtn">Give</button>
+        </div>
+      </div>
+
+      <button class="staff-ban-btn" id="staffBanBtn">Ban this user</button>
+    </div>
   </div>
 </div>
 
@@ -629,6 +727,7 @@ const profileIcon = document.getElementById('profileIcon');
 const profileName = document.getElementById('profileName');
 const profileScore = document.getElementById('profileScore');
 const profileBetaBadge = document.getElementById('profileBetaBadge');
+const profileStaffBadge = document.getElementById('profileStaffBadge');
 const profileSkinGrid = document.getElementById('profileSkinGrid');
 const removeFriendBtn = document.getElementById('removeFriendBtn');
 
@@ -639,6 +738,7 @@ const myProfileIcon = document.getElementById('myProfileIcon');
 const myProfileName = document.getElementById('myProfileName');
 const myProfileScore = document.getElementById('myProfileScore');
 const myBetaBadge = document.getElementById('myBetaBadge');
+const myStaffBadge = document.getElementById('myStaffBadge');
 const claimBetaBtn = document.getElementById('claimBetaBtn');
 const myProfileSkinGrid = document.getElementById('myProfileSkinGrid');
 
@@ -665,8 +765,27 @@ const inventoryModal = document.getElementById('inventoryModal');
 const closeInventoryBtn = document.getElementById('closeInventoryBtn');
 const inventoryGrid = document.getElementById('inventoryGrid');
 
+const openStaffBtn = document.getElementById('openStaffBtn');
+const staffModal = document.getElementById('staffModal');
+const closeStaffBtn = document.getElementById('closeStaffBtn');
+const staffLookupInput = document.getElementById('staffLookupInput');
+const staffLookupBtn = document.getElementById('staffLookupBtn');
+const staffError = document.getElementById('staffError');
+const staffResult = document.getElementById('staffResult');
+const staffResultName = document.getElementById('staffResultName');
+const staffResultStaffTag = document.getElementById('staffResultStaffTag');
+const staffResultStats = document.getElementById('staffResultStats');
+const staffPeelsInput = document.getElementById('staffPeelsInput');
+const staffGivePeelsBtn = document.getElementById('staffGivePeelsBtn');
+const staffSkinSelect = document.getElementById('staffSkinSelect');
+const staffGiveSkinBtn = document.getElementById('staffGiveSkinBtn');
+const staffBanBtn = document.getElementById('staffBanBtn');
+
 let myUsername = 'player';
 let myBetaTag = false;
+let myIsStaff = false;
+let staffTargetUid = null;
+let staffTargetData = null;
 let viewingReqId = null;
 let viewingFriendUid = null;
 let viewingFriendData = null;
@@ -811,12 +930,21 @@ auth.onAuthStateChanged(async (user)=>{
     const doc = await db.collection('users').doc(user.uid).get();
     const data = doc.exists ? doc.data() : {score:0, unlockedSkins:['classic'], username:'player'};
 
+    if(data.banned){
+      currentUid = null;
+      await auth.signOut();
+      authError.textContent = 'This account has been suspended.';
+      return;
+    }
+
     score = data.score || 0;
     lastSavedScore = score;
     unlockedSkins = new Set(data.unlockedSkins && data.unlockedSkins.length ? data.unlockedSkins : ['classic']);
     currentSkin = SKINS.find(s=>s.id === (data.equippedSkin || [...unlockedSkins].slice(-1)[0])) || SKINS[0];
     myUsername = data.username || 'player';
     myBetaTag = !!data.betaTag;
+    myIsStaff = !!data.isStaff;
+    openStaffBtn.classList.toggle('hidden', !myIsStaff);
 
     authScreen.classList.add('hidden');
     gameMain.classList.remove('hidden');
@@ -833,6 +961,8 @@ auth.onAuthStateChanged(async (user)=>{
     authUsername.value = '';
   } else {
     currentUid = null;
+    myIsStaff = false;
+    openStaffBtn.classList.add('hidden');
     gameMain.classList.add('hidden');
     userPill.classList.add('hidden');
     authScreen.classList.remove('hidden');
@@ -1027,6 +1157,7 @@ function renderFriendProfileData(data){
   profileName.textContent = data.username || 'player';
   profileScore.textContent = `${(data.score || 0).toLocaleString()} peels · ${friendUnlocked.size} of ${SKINS.length} skins`;
   profileBetaBadge.classList.toggle('hidden', !data.betaTag);
+  profileStaffBadge.classList.toggle('hidden', !data.isStaff);
 
   profileSkinGrid.innerHTML = '';
   SKINS.forEach(skin=>{
@@ -1148,6 +1279,7 @@ function renderMyProfile(){
   myProfileName.textContent = myUsername;
   myProfileScore.textContent = `${score.toLocaleString()} peels · ${unlockedSkins.size} of ${SKINS.length} skins`;
   myBetaBadge.classList.toggle('hidden', !myBetaTag);
+  myStaffBadge.classList.toggle('hidden', !myIsStaff);
   claimBetaBtn.classList.toggle('hidden', myBetaTag);
 
   myProfileSkinGrid.innerHTML = '';
@@ -1451,6 +1583,117 @@ openInventoryBtn.addEventListener('click', ()=>{
 closeInventoryBtn.addEventListener('click', ()=>inventoryModal.classList.remove('show'));
 inventoryModal.addEventListener('click', (e)=>{
   if(e.target === inventoryModal) inventoryModal.classList.remove('show');
+});
+
+/* ================= STAFF PANEL (staff-only; enforced by Firestore rules) ================= */
+function resetStaffResult(){
+  staffTargetUid = null;
+  staffTargetData = null;
+  staffResult.classList.add('hidden');
+  staffError.textContent = '';
+}
+
+openStaffBtn.addEventListener('click', ()=>{
+  if(!myIsStaff) return;
+  staffLookupInput.value = '';
+  resetStaffResult();
+  staffSkinSelect.innerHTML = '';
+  SKINS.filter(s => s.id !== 'classic').forEach(s => staffSkinSelect.appendChild(new Option(s.name, s.id)));
+  staffModal.classList.add('show');
+});
+closeStaffBtn.addEventListener('click', ()=>staffModal.classList.remove('show'));
+staffModal.addEventListener('click', (e)=>{
+  if(e.target === staffModal) staffModal.classList.remove('show');
+});
+
+async function staffLookup(){
+  if(!myIsStaff) return;
+  const username = staffLookupInput.value.trim().toLowerCase();
+  resetStaffResult();
+  if(!username){
+    staffError.textContent = 'Enter a username.';
+    return;
+  }
+  try{
+    const snap = await db.collection('users').where('username', '==', username).limit(1).get();
+    if(snap.empty){
+      staffError.textContent = 'No player with that username.';
+      return;
+    }
+    const doc = snap.docs[0];
+    staffTargetUid = doc.id;
+    staffTargetData = doc.data();
+    renderStaffResult();
+  } catch(err){
+    console.error(err);
+    staffError.textContent = 'Something went wrong looking that up.';
+  }
+}
+staffLookupBtn.addEventListener('click', staffLookup);
+staffLookupInput.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') staffLookup(); });
+
+function renderStaffResult(){
+  if(!staffTargetData) return;
+  staffResultName.textContent = staffTargetData.username || 'player';
+  staffResultStaffTag.classList.toggle('hidden', !staffTargetData.isStaff);
+  const skinCount = (staffTargetData.unlockedSkins || ['classic']).length;
+  staffResultStats.textContent = `${(staffTargetData.score || 0).toLocaleString()} peels · ${skinCount} of ${SKINS.length} skins${staffTargetData.banned ? ' · BANNED' : ''}`;
+  staffBanBtn.textContent = staffTargetData.banned ? 'Unban this user' : 'Ban this user';
+  staffBanBtn.classList.toggle('unban', !!staffTargetData.banned);
+  staffResult.classList.remove('hidden');
+}
+
+staffGivePeelsBtn.addEventListener('click', async ()=>{
+  if(!myIsStaff || !staffTargetUid) return;
+  const amount = parseInt(staffPeelsInput.value, 10);
+  if(!amount || amount <= 0){
+    staffError.textContent = 'Enter a positive number of peels.';
+    return;
+  }
+  try{
+    await db.collection('users').doc(staffTargetUid).update({
+      score: firebase.firestore.FieldValue.increment(amount),
+    });
+    staffTargetData.score = (staffTargetData.score || 0) + amount;
+    renderStaffResult();
+    staffPeelsInput.value = '';
+    staffError.textContent = '';
+  } catch(err){
+    console.error(err);
+    staffError.textContent = 'Failed to give peels.';
+  }
+});
+
+staffGiveSkinBtn.addEventListener('click', async ()=>{
+  if(!myIsStaff || !staffTargetUid) return;
+  const skinId = staffSkinSelect.value;
+  if(!skinId) return;
+  try{
+    await db.collection('users').doc(staffTargetUid).update({
+      unlockedSkins: firebase.firestore.FieldValue.arrayUnion(skinId),
+    });
+    if(!staffTargetData.unlockedSkins) staffTargetData.unlockedSkins = ['classic'];
+    if(!staffTargetData.unlockedSkins.includes(skinId)) staffTargetData.unlockedSkins.push(skinId);
+    renderStaffResult();
+    staffError.textContent = '';
+  } catch(err){
+    console.error(err);
+    staffError.textContent = 'Failed to give skin.';
+  }
+});
+
+staffBanBtn.addEventListener('click', async ()=>{
+  if(!myIsStaff || !staffTargetUid) return;
+  const newBanned = !staffTargetData.banned;
+  try{
+    await db.collection('users').doc(staffTargetUid).update({ banned: newBanned });
+    staffTargetData.banned = newBanned;
+    renderStaffResult();
+    staffError.textContent = '';
+  } catch(err){
+    console.error(err);
+    staffError.textContent = 'Failed to update ban status.';
+  }
 });
 
 bananaBtn.addEventListener('click', ()=>{
