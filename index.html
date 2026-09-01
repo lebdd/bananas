@@ -46,6 +46,11 @@
   header .wrap{width:100%;display:flex;justify-content:space-between;align-items:center;}
   .brand{display:flex;align-items:center;gap:10px;}
   .brand svg{width:30px;height:30px;}
+  .logo-secret-btn{
+    background:none;border:none;padding:0;margin:0;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;line-height:0;
+  }
   .brand-name{font-family:'Baloo 2',sans-serif;font-size:22px;font-weight:800;color:var(--brown);}
 
   .hidden{display:none !important;}
@@ -483,7 +488,9 @@
 <header>
   <div class="wrap">
     <div class="brand">
-      <svg viewBox="0 0 48 48" fill="none"><path d="M14 38c10 2 20-4 24-16 2-6 1-11-2-13-1 4-4 8-9 11-7 4-11 10-13 18z" fill="#ffc93c" stroke="#f2a900" stroke-width="1.5"/></svg>
+      <button class="logo-secret-btn" id="logoSecretBtn" aria-label="Banana logo" title="">
+        <svg viewBox="0 0 48 48" fill="none"><path d="M14 38c10 2 20-4 24-16 2-6 1-11-2-13-1 4-4 8-9 11-7 4-11 10-13 18z" fill="#ffc93c" stroke="#f2a900" stroke-width="1.5"/></svg>
+      </button>
       <span class="brand-name">Bananas</span>
     </div>
     <div class="user-pill hidden" id="userPill">
@@ -761,6 +768,7 @@ let lastSavedScore = 0;
 let recentClicks = [];
 
 const scoreDisplay = document.getElementById('scoreDisplay');
+const logoSecretBtn = document.getElementById('logoSecretBtn');
 const bananaBtn = document.getElementById('bananaBtn');
 const bananaSvg = document.getElementById('bananaSvg');
 const stage = document.getElementById('stage');
@@ -863,6 +871,7 @@ let profileUnsubscribe = null;
 let nextMinigameAt = 0;
 let minigameTimerInterval = null;
 let activeMinigameCleanup = null;
+let claimedLogoBonus = false;
 
 function stopWatchingProfile(){
   if(profileUnsubscribe){
@@ -1021,6 +1030,7 @@ auth.onAuthStateChanged(async (user)=>{
     nextMinigameAt = data.nextMinigameAt || 0;
     minigamePanel.classList.remove('hidden');
     startMinigameTimer();
+    claimedLogoBonus = !!data.claimedLogoBonus;
 
     authScreen.classList.add('hidden');
     gameMain.classList.remove('hidden');
@@ -2163,6 +2173,23 @@ minigameModal.addEventListener('click', (e)=>{
   if(e.target === minigameModal){
     if(activeMinigameCleanup){ activeMinigameCleanup(); activeMinigameCleanup = null; }
     minigameModal.classList.remove('show');
+  }
+});
+
+/* ================= SECRET LOGO BONUS ================= */
+logoSecretBtn.addEventListener('click', async ()=>{
+  if(!currentUid || claimedLogoBonus) return;
+  claimedLogoBonus = true;
+  score += 25000;
+  scoreDisplay.textContent = score.toLocaleString();
+  showToast(currentSkin, 'Jackpot!', '+25,000 peels from the logo \u2014 one-time only.');
+  try{
+    await db.collection('users').doc(currentUid).set({
+      score,
+      claimedLogoBonus: true,
+    }, { merge: true });
+  } catch(err){
+    console.error('failed to save logo bonus claim', err);
   }
 });
 
