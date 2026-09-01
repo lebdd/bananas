@@ -175,12 +175,12 @@
   .friend-card svg{width:38px;height:38px;flex:none;}
   .friend-card .f-info{flex:1;}
   .friend-card .f-name{font-weight:800;color:var(--ink);font-size:14px;}
-  .friend-card .f-stats{color:var(--muted);font-size:12px;margin-top:2px;}
-  .friend-remove{
-    background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;font-weight:700;
-    padding:6px 10px;border-radius:8px;
+  .friend-view-btn{
+    background:var(--yellow);color:var(--brown);border:none;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:13px;
+    padding:8px 16px;border-radius:8px;cursor:pointer;white-space:nowrap;
   }
-  .friend-remove:hover{color:var(--pink);}
+  .friend-view-btn:hover{filter:brightness(1.05);}
   .friends-empty{color:var(--muted);font-size:13px;margin-top:16px;}
 
   .friends-btn{
@@ -191,6 +191,24 @@
   }
   .friends-btn:hover{border-color:var(--yellow-deep);}
   .friends-btn svg{width:16px;height:16px;}
+
+  .profile-back{
+    background:none;border:none;color:var(--muted);cursor:pointer;
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;
+    padding:0;margin-bottom:12px;display:flex;align-items:center;gap:4px;
+  }
+  .profile-back:hover{color:var(--brown);}
+  .profile-header{display:flex;align-items:center;gap:14px;margin-bottom:6px;}
+  .profile-header svg{width:52px;height:52px;flex:none;}
+  .profile-header .p-name{font-size:20px;font-weight:800;color:var(--brown);}
+  .profile-header .p-score{color:var(--muted);font-size:13px;margin-top:2px;}
+  .friend-remove-btn{
+    width:100%;margin-top:20px;
+    background:none;border:2px solid var(--border);color:var(--pink);
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;
+    padding:10px 0;border-radius:10px;cursor:pointer;
+  }
+  .friend-remove-btn:hover{border-color:var(--pink);background:#fff0f2;}
 
   .modal-overlay{
     display:none;
@@ -332,15 +350,31 @@
 <div class="modal-overlay" id="friendsModal">
   <div class="modal-card">
     <button class="modal-close" id="closeFriendsBtn" aria-label="Close">✕</button>
-    <h2>Friends</h2>
-    <p>Add someone by username to see their peel count and skins.</p>
-    <div class="friend-add">
-      <input id="friendUsername" type="text" placeholder="their_username" maxlength="20">
-      <button id="addFriendBtn">Add</button>
+
+    <div id="friendsListPanel">
+      <h2>Friends</h2>
+      <p>Add someone by username to see their profile.</p>
+      <div class="friend-add">
+        <input id="friendUsername" type="text" placeholder="their_username" maxlength="20">
+        <button id="addFriendBtn">Add</button>
+      </div>
+      <div class="friend-error" id="friendError"></div>
+      <div class="friends-empty hidden" id="friendsEmpty">No friends added yet.</div>
+      <div class="friend-list" id="friendList"></div>
     </div>
-    <div class="friend-error" id="friendError"></div>
-    <div class="friends-empty hidden" id="friendsEmpty">No friends added yet.</div>
-    <div class="friend-list" id="friendList"></div>
+
+    <div id="friendProfilePanel" class="hidden">
+      <button class="profile-back" id="backToListBtn">&larr; Back to friends</button>
+      <div class="profile-header">
+        <div id="profileIcon"></div>
+        <div>
+          <div class="p-name" id="profileName"></div>
+          <div class="p-score" id="profileScore"></div>
+        </div>
+      </div>
+      <div class="skin-grid" id="profileSkinGrid" style="margin-top:18px;"></div>
+      <button class="friend-remove-btn" id="removeFriendBtn">Remove friend</button>
+    </div>
   </div>
 </div>
 
@@ -412,16 +446,33 @@ const friendsEmpty = document.getElementById('friendsEmpty');
 const friendsModal = document.getElementById('friendsModal');
 const openFriendsBtn = document.getElementById('openFriendsBtn');
 const closeFriendsBtn = document.getElementById('closeFriendsBtn');
+const friendsListPanel = document.getElementById('friendsListPanel');
+const friendProfilePanel = document.getElementById('friendProfilePanel');
+const backToListBtn = document.getElementById('backToListBtn');
+const profileIcon = document.getElementById('profileIcon');
+const profileName = document.getElementById('profileName');
+const profileScore = document.getElementById('profileScore');
+const profileSkinGrid = document.getElementById('profileSkinGrid');
+const removeFriendBtn = document.getElementById('removeFriendBtn');
 let myFriendUids = [];
+let viewingFriendUid = null;
+
+function showFriendsListView(){
+  friendProfilePanel.classList.add('hidden');
+  friendsListPanel.classList.remove('hidden');
+  viewingFriendUid = null;
+}
 
 openFriendsBtn.addEventListener('click', ()=>{
   friendsModal.classList.add('show');
+  showFriendsListView();
   renderFriends();
 });
 closeFriendsBtn.addEventListener('click', ()=>friendsModal.classList.remove('show'));
 friendsModal.addEventListener('click', (e)=>{
   if(e.target === friendsModal) friendsModal.classList.remove('show');
 });
+backToListBtn.addEventListener('click', showFriendsListView);
 
 const authScreen = document.getElementById('authScreen');
 const gameMain = document.getElementById('gameMain');
@@ -664,7 +715,6 @@ async function renderFriends(){
       const doc = await db.collection('users').doc(uid).get();
       if(!doc.exists) continue;
       const data = doc.data();
-      const skinCount = (data.unlockedSkins || ['classic']).length;
       const equipped = SKINS.find(s=>s.id === (data.equippedSkin || 'classic')) || SKINS[0];
 
       const card = document.createElement('div');
@@ -673,17 +723,44 @@ async function renderFriends(){
         ${skinIconSvg(equipped)}
         <div class="f-info">
           <div class="f-name">${data.username || 'player'}</div>
-          <div class="f-stats">${(data.score || 0).toLocaleString()} peels · ${skinCount} of ${SKINS.length} skins</div>
         </div>
-        <button class="friend-remove" data-uid="${uid}">Remove</button>
+        <button class="friend-view-btn">View</button>
       `;
-      card.querySelector('.friend-remove').addEventListener('click', ()=>removeFriend(uid));
+      card.querySelector('.friend-view-btn').addEventListener('click', ()=>openFriendProfile(uid, data));
       friendList.appendChild(card);
     } catch(err){
       console.error('failed to load friend', uid, err);
     }
   }
 }
+
+function openFriendProfile(uid, data){
+  viewingFriendUid = uid;
+  friendsListPanel.classList.add('hidden');
+  friendProfilePanel.classList.remove('hidden');
+
+  const equipped = SKINS.find(s=>s.id === (data.equippedSkin || 'classic')) || SKINS[0];
+  const friendUnlocked = new Set(data.unlockedSkins && data.unlockedSkins.length ? data.unlockedSkins : ['classic']);
+
+  profileIcon.innerHTML = skinIconSvg(equipped);
+  profileName.textContent = data.username || 'player';
+  profileScore.textContent = `${(data.score || 0).toLocaleString()} peels · ${friendUnlocked.size} of ${SKINS.length} skins`;
+
+  profileSkinGrid.innerHTML = '';
+  SKINS.forEach(skin=>{
+    const unlocked = friendUnlocked.has(skin.id);
+    const card = document.createElement('div');
+    card.className = 'skin-card' + (unlocked ? '' : ' locked');
+    card.innerHTML = `${skinIconSvg(skin)}<div class="s-name ${unlocked ? '' : 'locked-text'}">${unlocked ? skin.name : '???'}</div>`;
+    profileSkinGrid.appendChild(card);
+  });
+}
+
+removeFriendBtn.addEventListener('click', async ()=>{
+  if(!viewingFriendUid) return;
+  await removeFriend(viewingFriendUid);
+  showFriendsListView();
+});
 
 async function addFriend(){
   const username = friendUsername.value.trim().toLowerCase();
