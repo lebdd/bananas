@@ -210,6 +210,37 @@
   }
   .friend-remove-btn:hover{border-color:var(--pink);background:#fff0f2;}
 
+  .friend-section-title{margin-top:22px;font-weight:800;color:var(--brown);font-size:14px;}
+  .friend-decline-btn{
+    background:none;border:2px solid var(--border);color:var(--muted);
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;
+    padding:8px 12px;border-radius:8px;cursor:pointer;margin-left:8px;white-space:nowrap;
+  }
+  .friend-decline-btn:hover{border-color:var(--pink);color:var(--pink);}
+
+  .profile-btn{
+    background:var(--surface);border:2px solid var(--border);color:var(--brown);
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;
+    padding:8px 14px;border-radius:100px;cursor:pointer;
+    display:flex;align-items:center;gap:6px;
+  }
+  .profile-btn:hover{border-color:var(--yellow-deep);}
+  .profile-btn svg{width:16px;height:16px;}
+
+  .beta-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    background:#f2e9ff;color:#7a3fe0;
+    font-size:11px;font-weight:800;
+    padding:5px 12px;border-radius:100px;
+    margin-top:10px;
+  }
+  .claim-beta-btn{
+    background:none;border:2px dashed #c9a3ff;color:#7a3fe0;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:13px;
+    padding:9px 16px;border-radius:10px;cursor:pointer;margin-top:10px;
+  }
+  .claim-beta-btn:hover{background:#f7f0ff;}
+
   .modal-overlay{
     display:none;
     position:fixed;inset:0;
@@ -290,6 +321,10 @@
         <svg viewBox="0 0 48 48" fill="none"><path d="M14 38c10 2 20-4 24-16 2-6 1-11-2-13-1 4-4 8-9 11-7 4-11 10-13 18z" fill="#ffc93c"/></svg>
         <span id="scoreDisplay">0</span>
       </div>
+      <button class="profile-btn" id="openMyProfileBtn">
+        <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="17" r="8" stroke="currentColor" stroke-width="2.4"/><path d="M9 41c1.5-9 7-15 15-15s13.5 6 15 15" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+        Profile
+      </button>
       <button class="friends-btn" id="openFriendsBtn">
         <svg viewBox="0 0 48 48" fill="none"><circle cx="18" cy="18" r="7" stroke="currentColor" stroke-width="2.4"/><path d="M6 40c1-8 6-13 12-13s11 5 12 13" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="34" cy="16" r="5" stroke="currentColor" stroke-width="2.2" opacity="0.6"/><path d="M28 40c1-6 4-10 8-11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity="0.6"/></svg>
         Friends
@@ -353,13 +388,19 @@
 
     <div id="friendsListPanel">
       <h2>Friends</h2>
-      <p>Add someone by username to see their profile.</p>
+      <p>Send a request by username — they'll need to accept it.</p>
       <div class="friend-add">
         <input id="friendUsername" type="text" placeholder="their_username" maxlength="20">
-        <button id="addFriendBtn">Add</button>
+        <button id="addFriendBtn">Send request</button>
       </div>
       <div class="friend-error" id="friendError"></div>
-      <div class="friends-empty hidden" id="friendsEmpty">No friends added yet.</div>
+
+      <div class="friend-section-title">Requests</div>
+      <div class="friends-empty hidden" id="requestsEmpty">No pending requests.</div>
+      <div class="friend-list" id="requestList"></div>
+
+      <div class="friend-section-title">Your friends</div>
+      <div class="friends-empty hidden" id="friendsEmpty">No friends yet.</div>
       <div class="friend-list" id="friendList"></div>
     </div>
 
@@ -370,11 +411,29 @@
         <div>
           <div class="p-name" id="profileName"></div>
           <div class="p-score" id="profileScore"></div>
+          <div class="beta-badge hidden" id="profileBetaBadge">🌱 Beta Tester</div>
         </div>
       </div>
       <div class="skin-grid" id="profileSkinGrid" style="margin-top:18px;"></div>
       <button class="friend-remove-btn" id="removeFriendBtn">Remove friend</button>
     </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="myProfileModal">
+  <div class="modal-card">
+    <button class="modal-close" id="closeMyProfileBtn" aria-label="Close">✕</button>
+    <div class="profile-header">
+      <div id="myProfileIcon"></div>
+      <div>
+        <div class="p-name" id="myProfileName"></div>
+        <div class="p-score" id="myProfileScore"></div>
+        <div class="beta-badge hidden" id="myBetaBadge">🌱 Beta Tester</div>
+        <br>
+        <button class="claim-beta-btn hidden" id="claimBetaBtn">Claim beta tag</button>
+      </div>
+    </div>
+    <div class="skin-grid" id="myProfileSkinGrid" style="margin-top:18px;"></div>
   </div>
 </div>
 
@@ -443,6 +502,8 @@ const addFriendBtn = document.getElementById('addFriendBtn');
 const friendError = document.getElementById('friendError');
 const friendList = document.getElementById('friendList');
 const friendsEmpty = document.getElementById('friendsEmpty');
+const requestList = document.getElementById('requestList');
+const requestsEmpty = document.getElementById('requestsEmpty');
 const friendsModal = document.getElementById('friendsModal');
 const openFriendsBtn = document.getElementById('openFriendsBtn');
 const closeFriendsBtn = document.getElementById('closeFriendsBtn');
@@ -452,27 +513,49 @@ const backToListBtn = document.getElementById('backToListBtn');
 const profileIcon = document.getElementById('profileIcon');
 const profileName = document.getElementById('profileName');
 const profileScore = document.getElementById('profileScore');
+const profileBetaBadge = document.getElementById('profileBetaBadge');
 const profileSkinGrid = document.getElementById('profileSkinGrid');
 const removeFriendBtn = document.getElementById('removeFriendBtn');
-let myFriendUids = [];
-let viewingFriendUid = null;
+
+const openMyProfileBtn = document.getElementById('openMyProfileBtn');
+const myProfileModal = document.getElementById('myProfileModal');
+const closeMyProfileBtn = document.getElementById('closeMyProfileBtn');
+const myProfileIcon = document.getElementById('myProfileIcon');
+const myProfileName = document.getElementById('myProfileName');
+const myProfileScore = document.getElementById('myProfileScore');
+const myBetaBadge = document.getElementById('myBetaBadge');
+const claimBetaBtn = document.getElementById('claimBetaBtn');
+const myProfileSkinGrid = document.getElementById('myProfileSkinGrid');
+
+let myUsername = 'player';
+let myBetaTag = false;
+let viewingReqId = null;
 
 function showFriendsListView(){
   friendProfilePanel.classList.add('hidden');
   friendsListPanel.classList.remove('hidden');
-  viewingFriendUid = null;
+  viewingReqId = null;
 }
 
 openFriendsBtn.addEventListener('click', ()=>{
   friendsModal.classList.add('show');
   showFriendsListView();
-  renderFriends();
+  refreshFriendsAndRequests();
 });
 closeFriendsBtn.addEventListener('click', ()=>friendsModal.classList.remove('show'));
 friendsModal.addEventListener('click', (e)=>{
   if(e.target === friendsModal) friendsModal.classList.remove('show');
 });
 backToListBtn.addEventListener('click', showFriendsListView);
+
+openMyProfileBtn.addEventListener('click', ()=>{
+  renderMyProfile();
+  myProfileModal.classList.add('show');
+});
+closeMyProfileBtn.addEventListener('click', ()=>myProfileModal.classList.remove('show'));
+myProfileModal.addEventListener('click', (e)=>{
+  if(e.target === myProfileModal) myProfileModal.classList.remove('show');
+});
 
 const authScreen = document.getElementById('authScreen');
 const gameMain = document.getElementById('gameMain');
@@ -573,17 +656,17 @@ auth.onAuthStateChanged(async (user)=>{
     lastSavedScore = score;
     unlockedSkins = new Set(data.unlockedSkins && data.unlockedSkins.length ? data.unlockedSkins : ['classic']);
     currentSkin = SKINS.find(s=>s.id === (data.equippedSkin || [...unlockedSkins].slice(-1)[0])) || SKINS[0];
-    myFriendUids = data.friends || [];
+    myUsername = data.username || 'player';
+    myBetaTag = !!data.betaTag;
 
     authScreen.classList.add('hidden');
     gameMain.classList.remove('hidden');
     userPill.classList.remove('hidden');
-    userName.textContent = data.username || 'player';
+    userName.textContent = myUsername;
     scoreDisplay.textContent = score.toLocaleString();
 
     applySkin(currentSkin);
     renderCollection();
-    renderFriends();
 
     authSubmit.disabled = false;
     authPassword.value = '';
@@ -701,18 +784,60 @@ function updateCps(){
   cpsLabel.textContent = `${(recentClicks.length / 3).toFixed(1)} peels/sec`;
 }
 
-/* ================= FRIENDS ================= */
-async function renderFriends(){
-  friendList.innerHTML = '';
-  if(!myFriendUids.length){
-    friendsEmpty.classList.remove('hidden');
-    return;
-  }
-  friendsEmpty.classList.add('hidden');
+/* ================= FRIENDS (request / accept) ================= */
+function reqIdFor(uidA, uidB){
+  return [uidA, uidB].sort().join('_');
+}
 
-  for(const uid of myFriendUids){
-    try{
-      const doc = await db.collection('users').doc(uid).get();
+async function refreshFriendsAndRequests(){
+  if(!currentUid) return;
+
+  // Incoming pending requests
+  requestList.innerHTML = '';
+  try{
+    const incomingSnap = await db.collection('friendRequests')
+      .where('to', '==', currentUid).where('status', '==', 'pending').get();
+    if(incomingSnap.empty){
+      requestsEmpty.classList.remove('hidden');
+    } else {
+      requestsEmpty.classList.add('hidden');
+      incomingSnap.forEach(doc=>{
+        const req = doc.data();
+        const card = document.createElement('div');
+        card.className = 'friend-card';
+        card.innerHTML = `
+          <div class="f-info"><div class="f-name">${req.fromUsername}</div></div>
+          <button class="friend-view-btn">Accept</button>
+          <button class="friend-decline-btn">Decline</button>
+        `;
+        card.querySelector('.friend-view-btn').addEventListener('click', ()=>acceptRequest(doc.id));
+        card.querySelector('.friend-decline-btn').addEventListener('click', ()=>declineRequest(doc.id));
+        requestList.appendChild(card);
+      });
+    }
+  } catch(err){
+    console.error('failed to load requests', err);
+  }
+
+  // Accepted friends (either direction)
+  friendList.innerHTML = '';
+  try{
+    const [asFrom, asTo] = await Promise.all([
+      db.collection('friendRequests').where('from', '==', currentUid).where('status', '==', 'accepted').get(),
+      db.collection('friendRequests').where('to', '==', currentUid).where('status', '==', 'accepted').get(),
+    ]);
+    const friendEntries = [];
+    asFrom.forEach(doc => friendEntries.push({ reqId: doc.id, uid: doc.data().to }));
+    asTo.forEach(doc => friendEntries.push({ reqId: doc.id, uid: doc.data().from }));
+
+    if(!friendEntries.length){
+      friendsEmpty.classList.remove('hidden');
+      return;
+    }
+    friendsEmpty.classList.add('hidden');
+
+    for(const entry of friendEntries){
+      const doc = await db.collection('users').doc(entry.uid).get();
       if(!doc.exists) continue;
       const data = doc.data();
       const equipped = SKINS.find(s=>s.id === (data.equippedSkin || 'classic')) || SKINS[0];
@@ -721,21 +846,19 @@ async function renderFriends(){
       card.className = 'friend-card';
       card.innerHTML = `
         ${skinIconSvg(equipped)}
-        <div class="f-info">
-          <div class="f-name">${data.username || 'player'}</div>
-        </div>
+        <div class="f-info"><div class="f-name">${data.username || 'player'}</div></div>
         <button class="friend-view-btn">View</button>
       `;
-      card.querySelector('.friend-view-btn').addEventListener('click', ()=>openFriendProfile(uid, data));
+      card.querySelector('.friend-view-btn').addEventListener('click', ()=>openFriendProfile(entry.reqId, data));
       friendList.appendChild(card);
-    } catch(err){
-      console.error('failed to load friend', uid, err);
     }
+  } catch(err){
+    console.error('failed to load friends', err);
   }
 }
 
-function openFriendProfile(uid, data){
-  viewingFriendUid = uid;
+function openFriendProfile(reqId, data){
+  viewingReqId = reqId;
   friendsListPanel.classList.add('hidden');
   friendProfilePanel.classList.remove('hidden');
 
@@ -745,6 +868,7 @@ function openFriendProfile(uid, data){
   profileIcon.innerHTML = skinIconSvg(equipped);
   profileName.textContent = data.username || 'player';
   profileScore.textContent = `${(data.score || 0).toLocaleString()} peels · ${friendUnlocked.size} of ${SKINS.length} skins`;
+  profileBetaBadge.classList.toggle('hidden', !data.betaTag);
 
   profileSkinGrid.innerHTML = '';
   SKINS.forEach(skin=>{
@@ -757,12 +881,35 @@ function openFriendProfile(uid, data){
 }
 
 removeFriendBtn.addEventListener('click', async ()=>{
-  if(!viewingFriendUid) return;
-  await removeFriend(viewingFriendUid);
+  if(!viewingReqId) return;
+  try{
+    await db.collection('friendRequests').doc(viewingReqId).delete();
+  } catch(err){
+    console.error(err);
+  }
   showFriendsListView();
+  refreshFriendsAndRequests();
 });
 
-async function addFriend(){
+async function acceptRequest(reqId){
+  try{
+    await db.collection('friendRequests').doc(reqId).update({ status: 'accepted' });
+    refreshFriendsAndRequests();
+  } catch(err){
+    console.error(err);
+  }
+}
+
+async function declineRequest(reqId){
+  try{
+    await db.collection('friendRequests').doc(reqId).delete();
+    refreshFriendsAndRequests();
+  } catch(err){
+    console.error(err);
+  }
+}
+
+async function sendFriendRequest(){
   const username = friendUsername.value.trim().toLowerCase();
   friendError.textContent = '';
   if(!username){
@@ -775,26 +922,44 @@ async function addFriend(){
   try{
     const snap = await db.collection('users').where('username', '==', username).limit(1).get();
     if(snap.empty){
-      friendError.textContent = "No player with that username.";
+      friendError.textContent = 'No player with that username.';
       return;
     }
-    const friendDoc = snap.docs[0];
-    if(friendDoc.id === currentUid){
+    const targetDoc = snap.docs[0];
+    const targetUid = targetDoc.id;
+    if(targetUid === currentUid){
       friendError.textContent = "You can't add yourself.";
       return;
     }
-    if(myFriendUids.includes(friendDoc.id)){
-      friendError.textContent = 'Already on your friends list.';
-      return;
+
+    const reqId = reqIdFor(currentUid, targetUid);
+    const existing = await db.collection('friendRequests').doc(reqId).get();
+
+    if(existing.exists){
+      const existingData = existing.data();
+      if(existingData.status === 'accepted'){
+        friendError.textContent = 'Already friends.';
+        return;
+      }
+      if(existingData.from === currentUid){
+        friendError.textContent = 'Request already sent.';
+        return;
+      }
+      // They already requested us — sending now just accepts it.
+      await db.collection('friendRequests').doc(reqId).update({ status: 'accepted' });
+    } else {
+      await db.collection('friendRequests').doc(reqId).set({
+        from: currentUid,
+        to: targetUid,
+        fromUsername: myUsername,
+        toUsername: targetDoc.data().username,
+        status: 'pending',
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      });
     }
 
-    myFriendUids.push(friendDoc.id);
-    await db.collection('users').doc(currentUid).set({
-      friends: firebase.firestore.FieldValue.arrayUnion(friendDoc.id),
-    }, { merge: true });
-
     friendUsername.value = '';
-    renderFriends();
+    refreshFriendsAndRequests();
   } catch(err){
     console.error(err);
     friendError.textContent = 'Something went wrong. Try again.';
@@ -803,21 +968,40 @@ async function addFriend(){
   }
 }
 
-async function removeFriend(uid){
-  if(!currentUid) return;
-  myFriendUids = myFriendUids.filter(id => id !== uid);
-  try{
-    await db.collection('users').doc(currentUid).set({
-      friends: firebase.firestore.FieldValue.arrayRemove(uid),
-    }, { merge: true });
-  } catch(err){
-    console.error(err);
-  }
-  renderFriends();
+addFriendBtn.addEventListener('click', sendFriendRequest);
+friendUsername.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') sendFriendRequest(); });
+
+/* ================= MY PROFILE + BETA TAG ================= */
+function renderMyProfile(){
+  myProfileIcon.innerHTML = skinIconSvg(currentSkin);
+  myProfileName.textContent = myUsername;
+  myProfileScore.textContent = `${score.toLocaleString()} peels · ${unlockedSkins.size} of ${SKINS.length} skins`;
+  myBetaBadge.classList.toggle('hidden', !myBetaTag);
+  claimBetaBtn.classList.toggle('hidden', myBetaTag);
+
+  myProfileSkinGrid.innerHTML = '';
+  SKINS.forEach(skin=>{
+    const unlocked = unlockedSkins.has(skin.id);
+    const card = document.createElement('div');
+    card.className = 'skin-card' + (unlocked ? '' : ' locked');
+    card.innerHTML = `${skinIconSvg(skin)}<div class="s-name ${unlocked ? '' : 'locked-text'}">${unlocked ? skin.name : '???'}</div>`;
+    myProfileSkinGrid.appendChild(card);
+  });
 }
 
-addFriendBtn.addEventListener('click', addFriend);
-friendUsername.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') addFriend(); });
+claimBetaBtn.addEventListener('click', async ()=>{
+  if(!currentUid || myBetaTag) return;
+  claimBetaBtn.disabled = true;
+  try{
+    await db.collection('users').doc(currentUid).set({ betaTag: true }, { merge: true });
+    myBetaTag = true;
+    myBetaBadge.classList.remove('hidden');
+    claimBetaBtn.classList.add('hidden');
+  } catch(err){
+    console.error(err);
+    claimBetaBtn.disabled = false;
+  }
+});
 
 bananaBtn.addEventListener('click', ()=>{
   if(!currentUid) return;
