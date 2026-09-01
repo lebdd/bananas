@@ -149,6 +149,40 @@
   .skin-card.locked svg{filter:grayscale(1);}
   .skin-card .s-name.locked-text{color:var(--muted);}
 
+  .friends{width:100%;margin-top:52px;}
+  .friends h2{font-size:20px;color:var(--brown);}
+  .friends p{color:var(--muted);font-size:13px;margin-top:4px;}
+  .friend-add{
+    display:flex;gap:10px;margin-top:18px;max-width:360px;
+  }
+  .friend-add input{
+    flex:1;border:2px solid var(--border);border-radius:10px;padding:10px 12px;
+    font-family:'Nunito',sans-serif;font-size:14px;background:var(--surface);color:var(--ink);
+  }
+  .friend-add input:focus{outline:none;border-color:var(--yellow-deep);}
+  .friend-add button{
+    background:var(--yellow);color:var(--brown);border:none;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:14px;
+    padding:0 18px;border-radius:10px;cursor:pointer;white-space:nowrap;
+  }
+  .friend-add button:hover{filter:brightness(1.05);}
+  .friend-error{color:#d9455f;font-size:12px;font-weight:700;margin-top:8px;min-height:14px;text-align:left;}
+  .friend-list{margin-top:18px;display:flex;flex-direction:column;gap:10px;}
+  .friend-card{
+    background:var(--surface);border:2px solid var(--border);border-radius:14px;
+    padding:12px 16px;display:flex;align-items:center;gap:14px;text-align:left;
+  }
+  .friend-card svg{width:38px;height:38px;flex:none;}
+  .friend-card .f-info{flex:1;}
+  .friend-card .f-name{font-weight:800;color:var(--ink);font-size:14px;}
+  .friend-card .f-stats{color:var(--muted);font-size:12px;margin-top:2px;}
+  .friend-remove{
+    background:none;border:none;color:var(--muted);cursor:pointer;font-size:12px;font-weight:700;
+    padding:6px 10px;border-radius:8px;
+  }
+  .friend-remove:hover{color:var(--pink);}
+  .friends-empty{color:var(--muted);font-size:13px;margin-top:16px;}
+
   footer{padding:30px 24px 50px;text-align:center;color:var(--muted);font-size:12px;}
 
   .auth-wrap{display:flex;justify-content:center;align-items:center;min-height:70vh;padding:24px;}
@@ -248,6 +282,18 @@
     <p id="collectionSub">0 of 8 unlocked</p>
     <div class="skin-grid" id="skinGrid"></div>
   </div>
+
+  <div class="friends wrap" style="padding:0;">
+    <h2>Friends</h2>
+    <p>Add someone by username to see their peel count and skins.</p>
+    <div class="friend-add">
+      <input id="friendUsername" type="text" placeholder="their_username" maxlength="20">
+      <button id="addFriendBtn">Add</button>
+    </div>
+    <div class="friend-error" id="friendError"></div>
+    <div class="friends-empty hidden" id="friendsEmpty">No friends added yet.</div>
+    <div class="friend-list" id="friendList"></div>
+  </div>
 </main>
 
 <div class="toast" id="toast">
@@ -309,6 +355,13 @@ const toastIcon = document.getElementById('toastIcon');
 const toastTitle = document.getElementById('toastTitle');
 const toastSub = document.getElementById('toastSub');
 const cpsLabel = document.getElementById('cpsLabel');
+
+const friendUsername = document.getElementById('friendUsername');
+const addFriendBtn = document.getElementById('addFriendBtn');
+const friendError = document.getElementById('friendError');
+const friendList = document.getElementById('friendList');
+const friendsEmpty = document.getElementById('friendsEmpty');
+let myFriendUids = [];
 
 const authScreen = document.getElementById('authScreen');
 const gameMain = document.getElementById('gameMain');
@@ -408,7 +461,8 @@ auth.onAuthStateChanged(async (user)=>{
     score = data.score || 0;
     lastSavedScore = score;
     unlockedSkins = new Set(data.unlockedSkins && data.unlockedSkins.length ? data.unlockedSkins : ['classic']);
-    currentSkin = SKINS.find(s=>s.id === [...unlockedSkins].slice(-1)[0]) || SKINS[0];
+    currentSkin = SKINS.find(s=>s.id === (data.equippedSkin || [...unlockedSkins].slice(-1)[0])) || SKINS[0];
+    myFriendUids = data.friends || [];
 
     authScreen.classList.add('hidden');
     gameMain.classList.remove('hidden');
@@ -418,6 +472,7 @@ auth.onAuthStateChanged(async (user)=>{
 
     applySkin(currentSkin);
     renderCollection();
+    renderFriends();
 
     authSubmit.disabled = false;
     authPassword.value = '';
@@ -487,7 +542,13 @@ function renderCollection(){
     card.innerHTML = `${skinIconSvg(skin)}<div class="s-name ${unlocked ? '' : 'locked-text'}">${unlocked ? skin.name : '???'}</div>`;
     if(unlocked){
       card.style.cursor = 'pointer';
-      card.addEventListener('click', ()=>{ currentSkin = skin; applySkin(skin); });
+      card.addEventListener('click', ()=>{
+        currentSkin = skin;
+        applySkin(skin);
+        if(currentUid){
+          db.collection('users').doc(currentUid).set({ equippedSkin: skin.id }, { merge: true }).catch(console.error);
+        }
+      });
     }
     skinGrid.appendChild(card);
   });
@@ -528,6 +589,98 @@ function updateCps(){
   recentClicks = recentClicks.filter(t => now - t < 3000);
   cpsLabel.textContent = `${(recentClicks.length / 3).toFixed(1)} peels/sec`;
 }
+
+/* ================= FRIENDS ================= */
+async function renderFriends(){
+  friendList.innerHTML = '';
+  if(!myFriendUids.length){
+    friendsEmpty.classList.remove('hidden');
+    return;
+  }
+  friendsEmpty.classList.add('hidden');
+
+  for(const uid of myFriendUids){
+    try{
+      const doc = await db.collection('users').doc(uid).get();
+      if(!doc.exists) continue;
+      const data = doc.data();
+      const skinCount = (data.unlockedSkins || ['classic']).length;
+      const equipped = SKINS.find(s=>s.id === (data.equippedSkin || 'classic')) || SKINS[0];
+
+      const card = document.createElement('div');
+      card.className = 'friend-card';
+      card.innerHTML = `
+        ${skinIconSvg(equipped)}
+        <div class="f-info">
+          <div class="f-name">${data.username || 'player'}</div>
+          <div class="f-stats">${(data.score || 0).toLocaleString()} peels · ${skinCount} of ${SKINS.length} skins</div>
+        </div>
+        <button class="friend-remove" data-uid="${uid}">Remove</button>
+      `;
+      card.querySelector('.friend-remove').addEventListener('click', ()=>removeFriend(uid));
+      friendList.appendChild(card);
+    } catch(err){
+      console.error('failed to load friend', uid, err);
+    }
+  }
+}
+
+async function addFriend(){
+  const username = friendUsername.value.trim().toLowerCase();
+  friendError.textContent = '';
+  if(!username){
+    friendError.textContent = 'Enter a username first.';
+    return;
+  }
+  if(!currentUid) return;
+
+  addFriendBtn.disabled = true;
+  try{
+    const snap = await db.collection('users').where('username', '==', username).limit(1).get();
+    if(snap.empty){
+      friendError.textContent = "No player with that username.";
+      return;
+    }
+    const friendDoc = snap.docs[0];
+    if(friendDoc.id === currentUid){
+      friendError.textContent = "You can't add yourself.";
+      return;
+    }
+    if(myFriendUids.includes(friendDoc.id)){
+      friendError.textContent = 'Already on your friends list.';
+      return;
+    }
+
+    myFriendUids.push(friendDoc.id);
+    await db.collection('users').doc(currentUid).set({
+      friends: firebase.firestore.FieldValue.arrayUnion(friendDoc.id),
+    }, { merge: true });
+
+    friendUsername.value = '';
+    renderFriends();
+  } catch(err){
+    console.error(err);
+    friendError.textContent = 'Something went wrong. Try again.';
+  } finally {
+    addFriendBtn.disabled = false;
+  }
+}
+
+async function removeFriend(uid){
+  if(!currentUid) return;
+  myFriendUids = myFriendUids.filter(id => id !== uid);
+  try{
+    await db.collection('users').doc(currentUid).set({
+      friends: firebase.firestore.FieldValue.arrayRemove(uid),
+    }, { merge: true });
+  } catch(err){
+    console.error(err);
+  }
+  renderFriends();
+}
+
+addFriendBtn.addEventListener('click', addFriend);
+friendUsername.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') addFriend(); });
 
 bananaBtn.addEventListener('click', ()=>{
   if(!currentUid) return;
