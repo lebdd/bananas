@@ -421,6 +421,12 @@
   .mg-result .mg-result-score{font-family:'Baloo 2',sans-serif;font-size:30px;color:var(--brown);margin:10px 0 4px;}
   .mg-result .mg-result-reward{color:var(--yellow-deep);font-weight:800;font-size:15px;}
   .mg-result .mg-result-note{color:var(--muted);font-size:12px;margin-top:8px;}
+  .mg-bonus-skin{
+    display:flex;align-items:center;justify-content:center;gap:8px;
+    background:#fff3d6;border:2px dashed var(--yellow-deep);border-radius:12px;
+    padding:10px 14px;margin-top:12px;font-size:13px;color:var(--brown);
+  }
+  .mg-bonus-skin svg{width:32px;height:32px;}
   .mg-close-result-btn{
     width:100%;background:var(--yellow);color:var(--brown);border:none;
     font-family:'Baloo 2',sans-serif;font-weight:700;font-size:15px;
@@ -2099,10 +2105,28 @@ async function endMinigame(id, finalScore){
   nextMinigameAt = Date.now() + MINIGAME_COOLDOWN_MS;
   updateMinigamePanel();
 
+  // Bonus skin roll: same pool as normal clicks, but at double the chance (half the rarity).
+  let wonSkin = null;
+  const locked = SKINS.filter(s => !unlockedSkins.has(s.id));
+  for(const skin of locked){
+    if(Math.random() < skin.chance * 2){
+      unlockedSkins.add(skin.id);
+      wonSkin = skin;
+      break;
+    }
+  }
+  if(wonSkin) renderCollection();
+
   minigameStage.innerHTML = `
     <div class="mg-result">
       <div>You scored ${finalScore}!</div>
       <div class="mg-result-score">+${reward} peels</div>
+      ${wonSkin ? `
+        <div class="mg-bonus-skin">
+          ${skinIconSvg(wonSkin)}
+          <div>Bonus skin: <b>${wonSkin.name}</b>!</div>
+        </div>
+      ` : ''}
       <div class="mg-result-note">Come back in an hour for another go.</div>
       <button class="mg-close-result-btn" id="mgCloseResultBtn">Nice!</button>
     </div>
@@ -2116,6 +2140,7 @@ async function endMinigame(id, finalScore){
       await db.collection('users').doc(currentUid).set({
         score,
         nextMinigameAt,
+        unlockedSkins: [...unlockedSkins],
       }, { merge: true });
     } catch(err){
       console.error('failed to save minigame result', err);
