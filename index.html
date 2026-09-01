@@ -388,6 +388,46 @@
     z-index:5;
   }
 
+  .minigame-panel{
+    position:fixed;left:24px;top:50%;transform:translateY(-50%);
+    background:var(--surface);border:2px solid var(--border);border-radius:16px;
+    padding:20px;width:160px;text-align:center;z-index:8;
+  }
+  .minigame-panel .mg-icon{font-size:30px;}
+  .minigame-panel .mg-title{font-family:'Baloo 2',sans-serif;font-weight:700;color:var(--brown);font-size:16px;margin-top:6px;}
+  .minigame-panel .mg-sub{color:var(--muted);font-size:11px;margin-top:4px;line-height:1.4;}
+  .minigame-panel .mg-timer{color:var(--muted);font-size:14px;font-weight:800;margin-top:14px;font-family:'Baloo 2',sans-serif;}
+  .mg-play-btn{
+    width:100%;margin-top:10px;
+    background:var(--yellow);color:var(--brown);border:none;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:14px;
+    padding:10px 0;border-radius:10px;cursor:pointer;
+  }
+  .mg-play-btn:hover:not(:disabled){filter:brightness(1.05);}
+  .mg-play-btn:disabled{opacity:0.45;cursor:not-allowed;}
+  @media (max-width: 1180px){
+    .minigame-panel{display:none !important;}
+  }
+
+  .mg-canvas{background:#241a0a;border-radius:10px;display:block;margin:0 auto;touch-action:none;max-width:100%;}
+  .mg-instructions{color:var(--muted);font-size:13px;text-align:center;margin-bottom:14px;}
+  .mg-start-btn{
+    width:100%;background:var(--yellow);color:var(--brown);border:none;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:15px;
+    padding:12px 0;border-radius:10px;cursor:pointer;margin-top:14px;
+  }
+  .mg-start-btn:hover{filter:brightness(1.05);}
+  .mg-result{text-align:center;}
+  .mg-result .mg-result-score{font-family:'Baloo 2',sans-serif;font-size:30px;color:var(--brown);margin:10px 0 4px;}
+  .mg-result .mg-result-reward{color:var(--yellow-deep);font-weight:800;font-size:15px;}
+  .mg-result .mg-result-note{color:var(--muted);font-size:12px;margin-top:8px;}
+  .mg-close-result-btn{
+    width:100%;background:var(--yellow);color:var(--brown);border:none;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:15px;
+    padding:12px 0;border-radius:10px;cursor:pointer;margin-top:16px;
+  }
+  .mg-close-result-btn:hover{filter:brightness(1.05);}
+
   footer{padding:30px 24px 50px;text-align:center;color:var(--muted);font-size:12px;}
 
   .auth-wrap{display:flex;justify-content:center;align-items:center;min-height:70vh;padding:24px;}
@@ -425,6 +465,14 @@
 <body>
 
 <span class="version-tag">v1.1</span>
+
+<div class="minigame-panel hidden" id="minigamePanel">
+  <div class="mg-icon">🎮</div>
+  <div class="mg-title">Minigame</div>
+  <div class="mg-sub">Free play once an hour</div>
+  <div class="mg-timer" id="minigameTimerLabel">Ready!</div>
+  <button class="mg-play-btn" id="minigamePlayBtn">Play</button>
+</div>
 
 <header>
   <div class="wrap">
@@ -650,6 +698,14 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="minigameModal">
+  <div class="modal-card" style="max-width:400px;">
+    <button class="modal-close" id="closeMinigameBtn" aria-label="Close">✕</button>
+    <h2 id="minigameTitle">Minigame</h2>
+    <div id="minigameStage" style="margin-top:16px;"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg id="toastIcon" viewBox="0 0 100 100"></svg>
   <div>
@@ -781,6 +837,14 @@ const staffSkinSelect = document.getElementById('staffSkinSelect');
 const staffGiveSkinBtn = document.getElementById('staffGiveSkinBtn');
 const staffBanBtn = document.getElementById('staffBanBtn');
 
+const minigamePanel = document.getElementById('minigamePanel');
+const minigamePlayBtn = document.getElementById('minigamePlayBtn');
+const minigameTimerLabel = document.getElementById('minigameTimerLabel');
+const minigameModal = document.getElementById('minigameModal');
+const closeMinigameBtn = document.getElementById('closeMinigameBtn');
+const minigameTitle = document.getElementById('minigameTitle');
+const minigameStage = document.getElementById('minigameStage');
+
 let myUsername = 'player';
 let myBetaTag = false;
 let myIsStaff = false;
@@ -790,6 +854,9 @@ let viewingReqId = null;
 let viewingFriendUid = null;
 let viewingFriendData = null;
 let profileUnsubscribe = null;
+let nextMinigameAt = 0;
+let minigameTimerInterval = null;
+let activeMinigameCleanup = null;
 
 function stopWatchingProfile(){
   if(profileUnsubscribe){
@@ -945,6 +1012,9 @@ auth.onAuthStateChanged(async (user)=>{
     myBetaTag = !!data.betaTag;
     myIsStaff = !!data.isStaff;
     openStaffBtn.classList.toggle('hidden', !myIsStaff);
+    nextMinigameAt = data.nextMinigameAt || 0;
+    minigamePanel.classList.remove('hidden');
+    startMinigameTimer();
 
     authScreen.classList.add('hidden');
     gameMain.classList.remove('hidden');
@@ -963,6 +1033,8 @@ auth.onAuthStateChanged(async (user)=>{
     currentUid = null;
     myIsStaff = false;
     openStaffBtn.classList.add('hidden');
+    minigamePanel.classList.add('hidden');
+    if(minigameTimerInterval){ clearInterval(minigameTimerInterval); minigameTimerInterval = null; }
     gameMain.classList.add('hidden');
     userPill.classList.add('hidden');
     authScreen.classList.remove('hidden');
@@ -1694,6 +1766,378 @@ staffBanBtn.addEventListener('click', async ()=>{
   } catch(err){
     console.error(err);
     staffError.textContent = 'Failed to update ban status.';
+  }
+});
+
+/* ================= MINIGAMES ================= */
+const MINIGAME_COOLDOWN_MS = 60 * 60 * 1000; // 1 hour
+
+function runDinoGame(canvas, ctx, onGameOver){
+  const W = canvas.width, H = canvas.height;
+  const groundY = H - 34;
+  const player = { x: 30, y: groundY, w: 22, h: 22, vy: 0, jumping: false };
+  let obstacles = [];
+  let speed = 4;
+  let frame = 0;
+  let score = 0;
+  let running = true;
+  let spawnTimer = 0;
+  let nextSpawnIn = 60;
+
+  function jump(){
+    if(!player.jumping){
+      player.vy = -9.5;
+      player.jumping = true;
+    }
+  }
+  function keyHandler(e){
+    if(e.code === 'Space' || e.key === ' ' || e.key === 'ArrowUp'){
+      e.preventDefault();
+      jump();
+    }
+  }
+  function pointerHandler(e){ e.preventDefault(); jump(); }
+
+  document.addEventListener('keydown', keyHandler);
+  canvas.addEventListener('mousedown', pointerHandler);
+  canvas.addEventListener('touchstart', pointerHandler, { passive: false });
+
+  function spawnObstacle(){
+    const h = 16 + Math.random()*16;
+    obstacles.push({ x: W, y: groundY + player.h - h, w: 14, h });
+  }
+
+  function loop(){
+    if(!running) return;
+    frame++;
+
+    player.vy += 0.5;
+    player.y += player.vy;
+    if(player.y > groundY){ player.y = groundY; player.vy = 0; player.jumping = false; }
+
+    spawnTimer++;
+    if(spawnTimer > nextSpawnIn){
+      spawnObstacle();
+      spawnTimer = 0;
+      nextSpawnIn = 55 + Math.random()*45;
+    }
+    speed += 0.0025;
+    obstacles.forEach(o => o.x -= speed);
+    obstacles = obstacles.filter(o => o.x + o.w > 0);
+
+    for(const o of obstacles){
+      if(player.x < o.x + o.w && player.x + player.w > o.x && player.y < o.y + o.h && player.y + player.h > o.y){
+        running = false;
+        cleanup();
+        onGameOver(score);
+        return;
+      }
+    }
+    score = Math.floor(frame / 6);
+
+    ctx.fillStyle = '#241a0a';
+    ctx.fillRect(0, 0, W, H);
+    ctx.strokeStyle = '#8a7a55';
+    ctx.beginPath();
+    ctx.moveTo(0, groundY + player.h);
+    ctx.lineTo(W, groundY + player.h);
+    ctx.stroke();
+    ctx.fillStyle = '#ffc93c';
+    ctx.fillRect(player.x, player.y, player.w, player.h);
+    ctx.fillStyle = '#7fae2e';
+    obstacles.forEach(o => ctx.fillRect(o.x, o.y, o.w, o.h));
+    ctx.fillStyle = '#fff8e8';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('Score: ' + score, W - 90, 20);
+
+    requestAnimationFrame(loop);
+  }
+
+  function cleanup(){
+    running = false;
+    document.removeEventListener('keydown', keyHandler);
+    canvas.removeEventListener('mousedown', pointerHandler);
+    canvas.removeEventListener('touchstart', pointerHandler);
+  }
+
+  loop();
+  return cleanup;
+}
+
+function runSnakeGame(canvas, ctx, onGameOver){
+  const W = canvas.width, H = canvas.height;
+  const cell = 16;
+  const cols = Math.floor(W / cell), rows = Math.floor(H / cell);
+  let snake = [{ x: Math.floor(cols/2), y: Math.floor(rows/2) }];
+  let dir = { x: 1, y: 0 };
+  let nextDir = dir;
+  let food = randomFood();
+  let score = 0;
+  let running = true;
+  let tickInterval;
+
+  function randomFood(){
+    let pos;
+    do{
+      pos = { x: Math.floor(Math.random()*cols), y: Math.floor(Math.random()*rows) };
+    } while(snake.some(s => s.x === pos.x && s.y === pos.y));
+    return pos;
+  }
+
+  const keyMap = {
+    ArrowUp:{x:0,y:-1}, ArrowDown:{x:0,y:1}, ArrowLeft:{x:-1,y:0}, ArrowRight:{x:1,y:0},
+    w:{x:0,y:-1}, s:{x:0,y:1}, a:{x:-1,y:0}, d:{x:1,y:0},
+  };
+  function keyHandler(e){
+    const nd = keyMap[e.key];
+    if(nd && !(nd.x === -dir.x && nd.y === -dir.y)){
+      nextDir = nd;
+      e.preventDefault();
+    }
+  }
+  document.addEventListener('keydown', keyHandler);
+
+  function tick(){
+    dir = nextDir;
+    const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
+    if(head.x < 0 || head.y < 0 || head.x >= cols || head.y >= rows || snake.some(s => s.x === head.x && s.y === head.y)){
+      running = false;
+      cleanup();
+      onGameOver(score);
+      return;
+    }
+    snake.unshift(head);
+    if(head.x === food.x && head.y === food.y){
+      score += 5;
+      food = randomFood();
+    } else {
+      snake.pop();
+    }
+    draw();
+  }
+
+  function draw(){
+    ctx.fillStyle = '#241a0a';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ffc93c';
+    snake.forEach(s => ctx.fillRect(s.x*cell+1, s.y*cell+1, cell-2, cell-2));
+    ctx.fillStyle = '#ff8fa3';
+    ctx.fillRect(food.x*cell+2, food.y*cell+2, cell-4, cell-4);
+    ctx.fillStyle = '#fff8e8';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('Score: ' + score, 8, H - 8);
+  }
+
+  function cleanup(){
+    running = false;
+    document.removeEventListener('keydown', keyHandler);
+    clearInterval(tickInterval);
+  }
+
+  draw();
+  tickInterval = setInterval(tick, 130);
+  return cleanup;
+}
+
+function runPeelDropGame(canvas, ctx, onGameOver){
+  const W = canvas.width, H = canvas.height;
+  const paddle = { x: W/2 - 30, w: 60, h: 12, y: H - 20 };
+  let drops = [];
+  let score = 0;
+  let lives = 3;
+  let running = true;
+  let frame = 0;
+  let spawnTimer = 0;
+  let speed = 2;
+  const keys = {};
+
+  function keyDown(e){ keys[e.key] = true; }
+  function keyUp(e){ keys[e.key] = false; }
+  document.addEventListener('keydown', keyDown);
+  document.addEventListener('keyup', keyUp);
+
+  function pointerMove(e){
+    const rect = canvas.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const x = (clientX - rect.left) * (W / rect.width);
+    paddle.x = Math.max(0, Math.min(W - paddle.w, x - paddle.w/2));
+  }
+  canvas.addEventListener('mousemove', pointerMove);
+  canvas.addEventListener('touchmove', pointerMove, { passive: true });
+
+  function spawnDrop(){
+    drops.push({ x: 10 + Math.random()*(W-20), y: -12, r: 8 });
+  }
+
+  function loop(){
+    if(!running) return;
+    frame++;
+    if(keys['ArrowLeft']) paddle.x = Math.max(0, paddle.x - 5);
+    if(keys['ArrowRight']) paddle.x = Math.min(W - paddle.w, paddle.x + 5);
+
+    spawnTimer++;
+    if(spawnTimer > Math.max(20, 50 - Math.floor(frame/200))){
+      spawnDrop();
+      spawnTimer = 0;
+    }
+    speed = 2 + frame/1200;
+    drops.forEach(d => d.y += speed);
+
+    drops = drops.filter(d => {
+      if(d.y + d.r >= paddle.y && d.y - d.r <= paddle.y + paddle.h && d.x + d.r > paddle.x && d.x - d.r < paddle.x + paddle.w){
+        score++;
+        return false;
+      }
+      if(d.y - d.r > H){
+        lives--;
+        return false;
+      }
+      return true;
+    });
+
+    if(lives <= 0){
+      running = false;
+      cleanup();
+      onGameOver(score);
+      return;
+    }
+
+    ctx.fillStyle = '#241a0a';
+    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#ffc93c';
+    ctx.fillRect(paddle.x, paddle.y, paddle.w, paddle.h);
+    ctx.fillStyle = '#ffd94a';
+    drops.forEach(d => {
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI*2);
+      ctx.fill();
+    });
+    ctx.fillStyle = '#fff8e8';
+    ctx.font = '14px sans-serif';
+    ctx.fillText('Score: ' + score, 8, 18);
+    ctx.fillText('Lives: ' + lives, W - 66, 18);
+
+    requestAnimationFrame(loop);
+  }
+
+  function cleanup(){
+    running = false;
+    document.removeEventListener('keydown', keyDown);
+    document.removeEventListener('keyup', keyUp);
+    canvas.removeEventListener('mousemove', pointerMove);
+    canvas.removeEventListener('touchmove', pointerMove);
+  }
+
+  loop();
+  return cleanup;
+}
+
+const MINIGAMES = {
+  dino: {
+    name: 'Dino Jump',
+    instructions: 'Press Space (or tap the game) to jump over obstacles. One hit and it\'s over.',
+    run: runDinoGame,
+    rewardFor: s => Math.max(3, Math.min(s, 40)),
+  },
+  snake: {
+    name: 'Snake',
+    instructions: 'Arrow keys or WASD to move. Eat the pink squares to grow \u2014 avoid the walls and yourself.',
+    run: runSnakeGame,
+    rewardFor: s => Math.max(3, Math.min(s, 40)),
+  },
+  peel: {
+    name: 'Peel Drop',
+    instructions: 'Move the basket with arrow keys, your mouse, or touch. Catch falling bananas \u2014 miss three and it\'s over.',
+    run: runPeelDropGame,
+    rewardFor: s => Math.max(3, Math.min(s, 40)),
+  },
+};
+
+function updateMinigamePanel(){
+  const remaining = nextMinigameAt - Date.now();
+  if(remaining <= 0){
+    minigameTimerLabel.textContent = 'Ready!';
+    minigamePlayBtn.disabled = false;
+  } else {
+    const mins = Math.floor(remaining / 60000);
+    const secs = Math.floor((remaining % 60000) / 1000);
+    minigameTimerLabel.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+    minigamePlayBtn.disabled = true;
+  }
+}
+
+function startMinigameTimer(){
+  if(minigameTimerInterval) clearInterval(minigameTimerInterval);
+  updateMinigamePanel();
+  minigameTimerInterval = setInterval(updateMinigamePanel, 1000);
+}
+
+function openMinigame(id){
+  const game = MINIGAMES[id];
+  minigameTitle.textContent = game.name;
+  minigameStage.innerHTML = `
+    <div class="mg-instructions">${game.instructions}</div>
+    <canvas class="mg-canvas" id="mgCanvas" width="320" height="230"></canvas>
+    <button class="mg-start-btn" id="mgStartBtn">Start</button>
+  `;
+  minigameModal.classList.add('show');
+
+  document.getElementById('mgStartBtn').addEventListener('click', ()=>{
+    minigameStage.innerHTML = `<canvas class="mg-canvas" id="mgCanvas" width="320" height="230"></canvas>`;
+    const canvas = document.getElementById('mgCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.focus();
+    activeMinigameCleanup = game.run(canvas, ctx, (finalScore) => endMinigame(id, finalScore));
+  });
+}
+
+async function endMinigame(id, finalScore){
+  activeMinigameCleanup = null;
+  const reward = MINIGAMES[id].rewardFor(finalScore);
+  score += reward;
+  scoreDisplay.textContent = score.toLocaleString();
+  nextMinigameAt = Date.now() + MINIGAME_COOLDOWN_MS;
+  updateMinigamePanel();
+
+  minigameStage.innerHTML = `
+    <div class="mg-result">
+      <div>You scored ${finalScore}!</div>
+      <div class="mg-result-score">+${reward} peels</div>
+      <div class="mg-result-note">Come back in an hour for another go.</div>
+      <button class="mg-close-result-btn" id="mgCloseResultBtn">Nice!</button>
+    </div>
+  `;
+  document.getElementById('mgCloseResultBtn').addEventListener('click', ()=>{
+    minigameModal.classList.remove('show');
+  });
+
+  if(currentUid){
+    try{
+      await db.collection('users').doc(currentUid).set({
+        score,
+        nextMinigameAt,
+      }, { merge: true });
+    } catch(err){
+      console.error('failed to save minigame result', err);
+    }
+  }
+}
+
+minigamePlayBtn.addEventListener('click', ()=>{
+  if(!currentUid || Date.now() < nextMinigameAt) return;
+  const ids = Object.keys(MINIGAMES);
+  const chosenId = ids[Math.floor(Math.random() * ids.length)];
+  openMinigame(chosenId);
+});
+
+closeMinigameBtn.addEventListener('click', ()=>{
+  if(activeMinigameCleanup){ activeMinigameCleanup(); activeMinigameCleanup = null; }
+  minigameModal.classList.remove('show');
+});
+minigameModal.addEventListener('click', (e)=>{
+  if(e.target === minigameModal){
+    if(activeMinigameCleanup){ activeMinigameCleanup(); activeMinigameCleanup = null; }
+    minigameModal.classList.remove('show');
   }
 });
 
