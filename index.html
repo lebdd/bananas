@@ -241,6 +241,42 @@
   }
   .claim-beta-btn:hover{background:#f7f0ff;}
 
+  .trades-btn{
+    background:var(--surface);border:2px solid var(--border);color:var(--brown);
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;
+    padding:8px 14px;border-radius:100px;cursor:pointer;
+    display:flex;align-items:center;gap:6px;
+  }
+  .trades-btn:hover{border-color:var(--yellow-deep);}
+  .trades-btn svg{width:16px;height:16px;}
+
+  .propose-trade-btn{
+    width:100%;margin-top:12px;
+    background:var(--yellow);color:var(--brown);border:none;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:14px;
+    padding:11px 0;border-radius:10px;cursor:pointer;
+  }
+  .propose-trade-btn:hover{filter:brightness(1.05);}
+
+  .field select{
+    border:2px solid var(--border);border-radius:10px;padding:10px 12px;
+    font-family:'Nunito',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);
+    width:100%;
+  }
+  .field select:focus{outline:none;border-color:var(--yellow-deep);}
+
+  .trade-card{
+    background:var(--surface);border:2px solid var(--border);border-radius:14px;
+    padding:12px 16px;text-align:left;
+  }
+  .trade-card .t-who{font-weight:800;color:var(--ink);font-size:14px;margin-bottom:6px;}
+  .trade-card .t-swap{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;margin-bottom:10px;}
+  .trade-card .t-swap svg{width:24px;height:24px;flex:none;}
+  .trade-card .t-swap .t-arrow{color:var(--muted);font-size:14px;}
+  .trade-card .t-actions{display:flex;gap:8px;}
+  .trade-card .t-actions button{flex:1;}
+  .trade-status{color:var(--muted);font-size:12px;font-style:italic;}
+
   .modal-overlay{
     display:none;
     position:fixed;inset:0;
@@ -329,6 +365,10 @@
         <svg viewBox="0 0 48 48" fill="none"><circle cx="18" cy="18" r="7" stroke="currentColor" stroke-width="2.4"/><path d="M6 40c1-8 6-13 12-13s11 5 12 13" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="34" cy="16" r="5" stroke="currentColor" stroke-width="2.2" opacity="0.6"/><path d="M28 40c1-6 4-10 8-11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity="0.6"/></svg>
         Friends
       </button>
+      <button class="trades-btn" id="openTradesBtn">
+        <svg viewBox="0 0 48 48" fill="none"><path d="M8 18h26M28 12l6 6-6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/><path d="M40 30H14M20 24l-6 6 6 6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/></svg>
+        Trades
+      </button>
       <button class="logout-btn" id="logoutBtn">Log out</button>
     </div>
   </div>
@@ -415,6 +455,7 @@
         </div>
       </div>
       <div class="skin-grid" id="profileSkinGrid" style="margin-top:18px;"></div>
+      <button class="propose-trade-btn" id="proposeTradeBtn">Propose trade</button>
       <button class="friend-remove-btn" id="removeFriendBtn">Remove friend</button>
     </div>
   </div>
@@ -434,6 +475,42 @@
       </div>
     </div>
     <div class="skin-grid" id="myProfileSkinGrid" style="margin-top:18px;"></div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tradeComposerModal">
+  <div class="modal-card">
+    <button class="modal-close" id="closeTradeComposerBtn" aria-label="Close">✕</button>
+    <h2>Propose a trade</h2>
+    <p id="tradeComposerSub"></p>
+
+    <div class="field">
+      <label for="offerSkinSelect">Your skin to offer</label>
+      <select id="offerSkinSelect"></select>
+    </div>
+    <div class="field">
+      <label for="requestSkinSelect">Their skin you want</label>
+      <select id="requestSkinSelect"></select>
+    </div>
+
+    <div class="friend-error" id="tradeComposerError"></div>
+    <button class="auth-submit" id="sendTradeBtn">Send trade offer</button>
+  </div>
+</div>
+
+<div class="modal-overlay" id="tradesModal">
+  <div class="modal-card">
+    <button class="modal-close" id="closeTradesBtn" aria-label="Close">✕</button>
+    <h2>Trades</h2>
+    <p>Offers to swap skins with friends.</p>
+
+    <div class="friend-section-title">Incoming offers</div>
+    <div class="friends-empty hidden" id="incomingTradesEmpty">No incoming offers.</div>
+    <div class="friend-list" id="incomingTradesList"></div>
+
+    <div class="friend-section-title">Outgoing offers</div>
+    <div class="friends-empty hidden" id="outgoingTradesEmpty">No outgoing offers.</div>
+    <div class="friend-list" id="outgoingTradesList"></div>
   </div>
 </div>
 
@@ -527,9 +604,28 @@ const myBetaBadge = document.getElementById('myBetaBadge');
 const claimBetaBtn = document.getElementById('claimBetaBtn');
 const myProfileSkinGrid = document.getElementById('myProfileSkinGrid');
 
+const proposeTradeBtn = document.getElementById('proposeTradeBtn');
+const tradeComposerModal = document.getElementById('tradeComposerModal');
+const closeTradeComposerBtn = document.getElementById('closeTradeComposerBtn');
+const tradeComposerSub = document.getElementById('tradeComposerSub');
+const offerSkinSelect = document.getElementById('offerSkinSelect');
+const requestSkinSelect = document.getElementById('requestSkinSelect');
+const tradeComposerError = document.getElementById('tradeComposerError');
+const sendTradeBtn = document.getElementById('sendTradeBtn');
+
+const openTradesBtn = document.getElementById('openTradesBtn');
+const tradesModal = document.getElementById('tradesModal');
+const closeTradesBtn = document.getElementById('closeTradesBtn');
+const incomingTradesList = document.getElementById('incomingTradesList');
+const incomingTradesEmpty = document.getElementById('incomingTradesEmpty');
+const outgoingTradesList = document.getElementById('outgoingTradesList');
+const outgoingTradesEmpty = document.getElementById('outgoingTradesEmpty');
+
 let myUsername = 'player';
 let myBetaTag = false;
 let viewingReqId = null;
+let viewingFriendUid = null;
+let viewingFriendData = null;
 let profileUnsubscribe = null;
 
 function stopWatchingProfile(){
@@ -544,6 +640,8 @@ function showFriendsListView(){
   friendProfilePanel.classList.add('hidden');
   friendsListPanel.classList.remove('hidden');
   viewingReqId = null;
+  viewingFriendUid = null;
+  viewingFriendData = null;
 }
 
 openFriendsBtn.addEventListener('click', ()=>{
@@ -774,10 +872,10 @@ function spawnParticle(x, y){
   stage.appendChild(p);
   setTimeout(()=>p.remove(), 900);
 }
-function showToast(skin){
+function showToast(skin, title, sub){
   toastIcon.innerHTML = skinIconSvg(skin).replace('<svg viewBox="0 0 100 100">','').replace('</svg>','');
-  toastTitle.textContent = `New skin unlocked: ${skin.name}!`;
-  toastSub.textContent = 'Check your collection below';
+  toastTitle.textContent = title || `New skin unlocked: ${skin.name}!`;
+  toastSub.textContent = sub || 'Check your collection below';
   toast.classList.add('show');
   clearTimeout(showToast._t);
   showToast._t = setTimeout(()=>toast.classList.remove('show'), 2600);
@@ -875,6 +973,7 @@ async function refreshFriendsAndRequests(){
 }
 
 function renderFriendProfileData(data){
+  viewingFriendData = data;
   const equipped = SKINS.find(s=>s.id === (data.equippedSkin || 'classic')) || SKINS[0];
   const friendUnlocked = new Set(data.unlockedSkins && data.unlockedSkins.length ? data.unlockedSkins : ['classic']);
 
@@ -895,6 +994,7 @@ function renderFriendProfileData(data){
 
 function openFriendProfile(reqId, uid){
   viewingReqId = reqId;
+  viewingFriendUid = uid;
   friendsListPanel.classList.add('hidden');
   friendProfilePanel.classList.remove('hidden');
 
@@ -1026,6 +1126,226 @@ claimBetaBtn.addEventListener('click', async ()=>{
     console.error(err);
     claimBetaBtn.disabled = false;
   }
+});
+
+/* ================= TRADING ================= */
+function skinLabel(skin){
+  return skin ? skin.name : 'Unknown';
+}
+
+function openTradeComposer(){
+  if(!viewingFriendUid || !viewingFriendData) return;
+  tradeComposerError.textContent = '';
+  tradeComposerSub.textContent = `Trade with ${viewingFriendData.username || 'this player'}.`;
+
+  const friendUnlocked = new Set(viewingFriendData.unlockedSkins && viewingFriendData.unlockedSkins.length ? viewingFriendData.unlockedSkins : ['classic']);
+
+  // Skins I can offer: mine, not classic, and they don't already have it.
+  const offerable = SKINS.filter(s => s.id !== 'classic' && unlockedSkins.has(s.id) && !friendUnlocked.has(s.id));
+  // Skins I can request: theirs, not classic, and I don't already have it.
+  const requestable = SKINS.filter(s => s.id !== 'classic' && friendUnlocked.has(s.id) && !unlockedSkins.has(s.id));
+
+  offerSkinSelect.innerHTML = '';
+  requestSkinSelect.innerHTML = '';
+
+  if(!offerable.length || !requestable.length){
+    tradeComposerError.textContent = "No tradeable skins between you two right now — you'd need a skin they don't have, and they'd need one you don't have.";
+    sendTradeBtn.disabled = true;
+  } else {
+    sendTradeBtn.disabled = false;
+    offerable.forEach(s => offerSkinSelect.appendChild(new Option(s.name, s.id)));
+    requestable.forEach(s => requestSkinSelect.appendChild(new Option(s.name, s.id)));
+  }
+
+  tradeComposerModal.classList.add('show');
+}
+
+proposeTradeBtn.addEventListener('click', openTradeComposer);
+closeTradeComposerBtn.addEventListener('click', ()=>tradeComposerModal.classList.remove('show'));
+tradeComposerModal.addEventListener('click', (e)=>{
+  if(e.target === tradeComposerModal) tradeComposerModal.classList.remove('show');
+});
+
+sendTradeBtn.addEventListener('click', async ()=>{
+  if(!currentUid || !viewingFriendUid) return;
+  const offerSkin = offerSkinSelect.value;
+  const requestSkin = requestSkinSelect.value;
+  if(!offerSkin || !requestSkin){
+    tradeComposerError.textContent = 'Pick a skin on both sides.';
+    return;
+  }
+
+  sendTradeBtn.disabled = true;
+  try{
+    await db.collection('tradeOffers').add({
+      from: currentUid,
+      to: viewingFriendUid,
+      fromUsername: myUsername,
+      toUsername: viewingFriendData.username || 'player',
+      offerSkin,
+      requestSkin,
+      status: 'pending',
+      fromClaimed: false,
+      toClaimed: false,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+    });
+    tradeComposerModal.classList.remove('show');
+  } catch(err){
+    console.error(err);
+    tradeComposerError.textContent = 'Something went wrong sending the offer.';
+  } finally {
+    sendTradeBtn.disabled = false;
+  }
+});
+
+function applySkinRemoval(skinId){
+  unlockedSkins.delete(skinId);
+  if(currentSkin.id === skinId){
+    currentSkin = SKINS[0];
+    applySkin(currentSkin);
+  }
+}
+
+async function claimMyTradeSide(tradeDoc){
+  const trade = tradeDoc.data();
+  const isFrom = trade.from === currentUid;
+  const alreadyClaimed = isFrom ? trade.fromClaimed : trade.toClaimed;
+  if(alreadyClaimed) return;
+
+  const giveSkinId = isFrom ? trade.offerSkin : trade.requestSkin;
+  const getSkinId = isFrom ? trade.requestSkin : trade.offerSkin;
+
+  if(!unlockedSkins.has(giveSkinId)){
+    // Can no longer honor this trade — mark it failed rather than lose someone's skin for nothing.
+    await db.collection('tradeOffers').doc(tradeDoc.id).update({ status: 'failed' }).catch(console.error);
+    return;
+  }
+
+  applySkinRemoval(giveSkinId);
+  unlockedSkins.add(getSkinId);
+  renderCollection();
+  await saveProgress();
+
+  const update = isFrom ? { fromClaimed: true } : { toClaimed: true };
+  const otherClaimed = isFrom ? trade.toClaimed : trade.fromClaimed;
+  if(otherClaimed) update.status = 'completed';
+  await db.collection('tradeOffers').doc(tradeDoc.id).update(update);
+
+  const gotSkin = SKINS.find(s => s.id === getSkinId) || SKINS[0];
+  showToast(gotSkin, `Trade complete!`, `You received ${skinLabel(gotSkin)}`);
+}
+
+async function refreshTrades(){
+  if(!currentUid) return;
+
+  // Process any accepted trades where my side hasn't been claimed yet.
+  try{
+    const [needClaimAsFrom, needClaimAsTo] = await Promise.all([
+      db.collection('tradeOffers').where('from', '==', currentUid).where('status', '==', 'accepted').where('fromClaimed', '==', false).get(),
+      db.collection('tradeOffers').where('to', '==', currentUid).where('status', '==', 'accepted').where('toClaimed', '==', false).get(),
+    ]);
+    for(const doc of [...needClaimAsFrom.docs, ...needClaimAsTo.docs]){
+      await claimMyTradeSide(doc);
+    }
+  } catch(err){
+    console.error('trade claim check failed', err);
+  }
+
+  // Incoming pending offers
+  incomingTradesList.innerHTML = '';
+  try{
+    const incomingSnap = await db.collection('tradeOffers').where('to', '==', currentUid).where('status', '==', 'pending').get();
+    if(incomingSnap.empty){
+      incomingTradesEmpty.classList.remove('hidden');
+    } else {
+      incomingTradesEmpty.classList.add('hidden');
+      incomingSnap.forEach(doc=>{
+        const trade = doc.data();
+        const offerSkin = SKINS.find(s=>s.id === trade.offerSkin);
+        const requestSkin = SKINS.find(s=>s.id === trade.requestSkin);
+        const card = document.createElement('div');
+        card.className = 'trade-card';
+        card.innerHTML = `
+          <div class="t-who">${trade.fromUsername}</div>
+          <div class="t-swap">
+            ${skinIconSvg(offerSkin)}<span>${skinLabel(offerSkin)}</span>
+            <span class="t-arrow">&rarr;</span>
+            ${skinIconSvg(requestSkin)}<span>your ${skinLabel(requestSkin)}</span>
+          </div>
+          <div class="t-actions">
+            <button class="friend-view-btn">Accept</button>
+            <button class="friend-decline-btn">Decline</button>
+          </div>
+        `;
+        card.querySelector('.friend-view-btn').addEventListener('click', ()=>acceptTrade(doc.id));
+        card.querySelector('.friend-decline-btn').addEventListener('click', ()=>declineTrade(doc.id));
+        incomingTradesList.appendChild(card);
+      });
+    }
+  } catch(err){
+    console.error('failed to load incoming trades', err);
+  }
+
+  // Outgoing pending offers
+  outgoingTradesList.innerHTML = '';
+  try{
+    const outgoingSnap = await db.collection('tradeOffers').where('from', '==', currentUid).where('status', '==', 'pending').get();
+    if(outgoingSnap.empty){
+      outgoingTradesEmpty.classList.remove('hidden');
+    } else {
+      outgoingTradesEmpty.classList.add('hidden');
+      outgoingSnap.forEach(doc=>{
+        const trade = doc.data();
+        const offerSkin = SKINS.find(s=>s.id === trade.offerSkin);
+        const requestSkin = SKINS.find(s=>s.id === trade.requestSkin);
+        const card = document.createElement('div');
+        card.className = 'trade-card';
+        card.innerHTML = `
+          <div class="t-who">To ${trade.toUsername}</div>
+          <div class="t-swap">
+            ${skinIconSvg(offerSkin)}<span>your ${skinLabel(offerSkin)}</span>
+            <span class="t-arrow">&rarr;</span>
+            ${skinIconSvg(requestSkin)}<span>${skinLabel(requestSkin)}</span>
+          </div>
+          <div class="t-actions">
+            <span class="trade-status">Waiting for response</span>
+            <button class="friend-decline-btn">Cancel</button>
+          </div>
+        `;
+        card.querySelector('.friend-decline-btn').addEventListener('click', ()=>declineTrade(doc.id));
+        outgoingTradesList.appendChild(card);
+      });
+    }
+  } catch(err){
+    console.error('failed to load outgoing trades', err);
+  }
+}
+
+async function acceptTrade(tradeId){
+  try{
+    await db.collection('tradeOffers').doc(tradeId).update({ status: 'accepted' });
+    refreshTrades();
+  } catch(err){
+    console.error(err);
+  }
+}
+
+async function declineTrade(tradeId){
+  try{
+    await db.collection('tradeOffers').doc(tradeId).delete();
+    refreshTrades();
+  } catch(err){
+    console.error(err);
+  }
+}
+
+openTradesBtn.addEventListener('click', ()=>{
+  tradesModal.classList.add('show');
+  refreshTrades();
+});
+closeTradesBtn.addEventListener('click', ()=>tradesModal.classList.remove('show'));
+tradesModal.addEventListener('click', (e)=>{
+  if(e.target === tradesModal) tradesModal.classList.remove('show');
 });
 
 bananaBtn.addEventListener('click', ()=>{
