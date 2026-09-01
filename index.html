@@ -530,8 +530,17 @@ const myProfileSkinGrid = document.getElementById('myProfileSkinGrid');
 let myUsername = 'player';
 let myBetaTag = false;
 let viewingReqId = null;
+let profileUnsubscribe = null;
+
+function stopWatchingProfile(){
+  if(profileUnsubscribe){
+    profileUnsubscribe();
+    profileUnsubscribe = null;
+  }
+}
 
 function showFriendsListView(){
+  stopWatchingProfile();
   friendProfilePanel.classList.add('hidden');
   friendsListPanel.classList.remove('hidden');
   viewingReqId = null;
@@ -542,11 +551,18 @@ openFriendsBtn.addEventListener('click', ()=>{
   showFriendsListView();
   refreshFriendsAndRequests();
 });
-closeFriendsBtn.addEventListener('click', ()=>friendsModal.classList.remove('show'));
+closeFriendsBtn.addEventListener('click', ()=>{
+  stopWatchingProfile();
+  friendsModal.classList.remove('show');
+});
 friendsModal.addEventListener('click', (e)=>{
-  if(e.target === friendsModal) friendsModal.classList.remove('show');
+  if(e.target === friendsModal){
+    stopWatchingProfile();
+    friendsModal.classList.remove('show');
+  }
 });
 backToListBtn.addEventListener('click', showFriendsListView);
+
 
 openMyProfileBtn.addEventListener('click', ()=>{
   renderMyProfile();
@@ -642,6 +658,7 @@ authPassword.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') handleAuth
 authUsername.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') handleAuthSubmit(); });
 
 logoutBtn.addEventListener('click', async ()=>{
+  stopWatchingProfile();
   await saveProgress();
   await auth.signOut();
 });
@@ -849,7 +866,7 @@ async function refreshFriendsAndRequests(){
         <div class="f-info"><div class="f-name">${data.username || 'player'}</div></div>
         <button class="friend-view-btn">View</button>
       `;
-      card.querySelector('.friend-view-btn').addEventListener('click', ()=>openFriendProfile(entry.reqId, data));
+      card.querySelector('.friend-view-btn').addEventListener('click', ()=>openFriendProfile(entry.reqId, entry.uid));
       friendList.appendChild(card);
     }
   } catch(err){
@@ -857,11 +874,7 @@ async function refreshFriendsAndRequests(){
   }
 }
 
-function openFriendProfile(reqId, data){
-  viewingReqId = reqId;
-  friendsListPanel.classList.add('hidden');
-  friendProfilePanel.classList.remove('hidden');
-
+function renderFriendProfileData(data){
   const equipped = SKINS.find(s=>s.id === (data.equippedSkin || 'classic')) || SKINS[0];
   const friendUnlocked = new Set(data.unlockedSkins && data.unlockedSkins.length ? data.unlockedSkins : ['classic']);
 
@@ -878,6 +891,18 @@ function openFriendProfile(reqId, data){
     card.innerHTML = `${skinIconSvg(skin)}<div class="s-name ${unlocked ? '' : 'locked-text'}">${unlocked ? skin.name : '???'}</div>`;
     profileSkinGrid.appendChild(card);
   });
+}
+
+function openFriendProfile(reqId, uid){
+  viewingReqId = reqId;
+  friendsListPanel.classList.add('hidden');
+  friendProfilePanel.classList.remove('hidden');
+
+  stopWatchingProfile();
+  profileUnsubscribe = db.collection('users').doc(uid).onSnapshot(
+    doc => { if(doc.exists) renderFriendProfileData(doc.data()); },
+    err => console.error('profile listener failed', err)
+  );
 }
 
 removeFriendBtn.addEventListener('click', async ()=>{
