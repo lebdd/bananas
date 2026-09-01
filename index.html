@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Bananas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+<!-- Firebase (compat build — works directly in the browser, no build step needed) -->
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+
+<style>
+  :root{
+    --bg:#fff8e8;
+    --surface:#ffffff;
+    --border:#f0e2bd;
+    --ink:#3a2e1a;
+    --muted:#8a7a55;
+    --yellow:#ffc93c;
+    --yellow-deep:#f2a900;
+    --brown:#7a4a26;
+    --pink:#ff8fa3;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--bg);
+    color:var(--ink);
+    font-family:'Nunito',sans-serif;
+    min-height:100vh;
+  }
+  h1,h2,.display{
+    font-family:'Baloo 2',sans-serif;
+    font-weight:700;
+    margin:0;
+  }
+  .wrap{max-width:920px;margin:0 auto;padding:0 24px;}
+
+  header{
+    display:flex;justify-content:space-between;align-items:center;
+    padding:20px 24px;
+  }
+  header .wrap{width:100%;display:flex;justify-content:space-between;align-items:center;}
+  .brand{display:flex;align-items:center;gap:10px;}
+  .brand svg{width:30px;height:30px;}
+  .brand-name{font-family:'Baloo 2',sans-serif;font-size:22px;font-weight:800;color:var(--brown);}
+
+  .hidden{display:none !important;}
+
+  .user-pill{display:flex;align-items:center;gap:10px;}
+  .user-pill .u-name{
+    background:var(--surface);border:2px solid var(--border);
+    padding:8px 14px;border-radius:100px;font-weight:800;font-size:14px;color:var(--brown);
+  }
+  .score-pill{
+    background:var(--surface);border:2px solid var(--border);
+    padding:8px 14px;border-radius:100px;font-weight:800;font-size:14px;
+    display:flex;align-items:center;gap:8px;
+  }
+  .score-pill svg{width:18px;height:18px;}
+  .logout-btn{
+    background:none;border:2px solid var(--border);color:var(--muted);
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;
+    padding:8px 12px;border-radius:100px;cursor:pointer;
+  }
+  .logout-btn:hover{border-color:var(--pink);color:var(--pink);}
+
+  main{
+    display:flex;flex-direction:column;align-items:center;
+    padding:20px 24px 60px;
+    text-align:center;
+  }
+  .tagline{color:var(--muted);font-size:15px;margin-top:4px;max-width:380px;}
+
+  .stage{
+    position:relative;
+    margin-top:28px;
+    width:280px;height:280px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .banana-btn{
+    background:none;border:none;cursor:pointer;
+    width:220px;height:220px;
+    padding:0;
+    -webkit-tap-highlight-color:transparent;
+    transition:transform 0.08s ease;
+    filter:drop-shadow(0 14px 24px rgba(122,74,38,0.25));
+  }
+  .banana-btn:active{transform:scale(0.9) rotate(-4deg);}
+  .banana-btn.bounce{animation:bounce 0.22s ease;}
+  @keyframes bounce{
+    0%{transform:scale(1) rotate(0);}
+    40%{transform:scale(0.88) rotate(-6deg);}
+    100%{transform:scale(1) rotate(0);}
+  }
+  .particle{
+    position:absolute;
+    font-family:'Baloo 2',sans-serif;
+    font-weight:800;
+    font-size:18px;
+    color:var(--yellow-deep);
+    pointer-events:none;
+    animation:floatUp 0.9s ease-out forwards;
+  }
+  @keyframes floatUp{
+    0%{opacity:1;transform:translateY(0) scale(1);}
+    100%{opacity:0;transform:translateY(-70px) scale(1.2);}
+  }
+
+  .cps{color:var(--muted);font-size:13px;margin-top:6px;}
+
+  .toast{
+    position:fixed;
+    top:24px;left:50%;
+    transform:translateX(-50%) translateY(-140%);
+    background:var(--brown);
+    color:#fff8e8;
+    padding:14px 22px;
+    border-radius:14px;
+    font-weight:700;
+    display:flex;align-items:center;gap:12px;
+    box-shadow:0 12px 30px rgba(0,0,0,0.25);
+    transition:transform 0.35s cubic-bezier(0.2,0.9,0.3,1.2);
+    z-index:20;
+  }
+  .toast.show{transform:translateX(-50%) translateY(0);}
+  .toast svg{width:34px;height:34px;flex:none;}
+  .toast .t-sub{font-weight:400;font-size:12px;color:#f0ddb8;}
+
+  .collection{width:100%;margin-top:52px;}
+  .collection h2{font-size:20px;color:var(--brown);}
+  .collection p{color:var(--muted);font-size:13px;margin-top:4px;}
+  .skin-grid{
+    margin-top:20px;
+    display:grid;
+    grid-template-columns:repeat(auto-fill,minmax(110px,1fr));
+    gap:14px;
+  }
+  .skin-card{
+    background:var(--surface);border:2px solid var(--border);border-radius:14px;
+    padding:14px 8px;display:flex;flex-direction:column;align-items:center;gap:8px;
+  }
+  .skin-card svg{width:52px;height:52px;}
+  .skin-card .s-name{font-size:11px;font-weight:700;color:var(--ink);}
+  .skin-card.locked{opacity:0.4;}
+  .skin-card.locked svg{filter:grayscale(1);}
+  .skin-card .s-name.locked-text{color:var(--muted);}
+
+  footer{padding:30px 24px 50px;text-align:center;color:var(--muted);font-size:12px;}
+
+  .auth-wrap{display:flex;justify-content:center;align-items:center;min-height:70vh;padding:24px;}
+  .auth-card{
+    background:var(--surface);border:2px solid var(--border);border-radius:20px;
+    padding:32px;width:100%;max-width:340px;text-align:center;
+  }
+  .auth-card svg{width:44px;height:44px;margin-bottom:6px;}
+  .auth-card h2{font-size:22px;color:var(--brown);}
+  .auth-card .sub{color:var(--muted);font-size:13px;margin-top:4px;margin-bottom:20px;}
+  .auth-tabs{display:flex;background:var(--bg);border-radius:100px;padding:4px;margin-bottom:20px;}
+  .auth-tab{
+    flex:1;padding:9px 0;border:none;background:none;cursor:pointer;
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:13px;color:var(--muted);border-radius:100px;
+  }
+  .auth-tab.active{background:var(--yellow);color:var(--brown);}
+  .field{display:flex;flex-direction:column;align-items:stretch;gap:6px;margin-bottom:14px;text-align:left;}
+  .field label{font-size:12px;font-weight:700;color:var(--muted);}
+  .field input{
+    border:2px solid var(--border);border-radius:10px;padding:10px 12px;
+    font-family:'Nunito',sans-serif;font-size:14px;background:var(--bg);color:var(--ink);
+  }
+  .field input:focus{outline:none;border-color:var(--yellow-deep);}
+  .auth-submit{
+    width:100%;background:var(--yellow);color:var(--brown);border:none;
+    font-family:'Baloo 2',sans-serif;font-weight:700;font-size:15px;
+    padding:12px 0;border-radius:10px;cursor:pointer;margin-top:4px;transition:filter 0.15s ease;
+  }
+  .auth-submit:hover:not(:disabled){filter:brightness(1.05);}
+  .auth-submit:disabled{opacity:0.5;cursor:not-allowed;}
+  .auth-error{color:#d9455f;font-size:12px;font-weight:700;margin-top:12px;min-height:14px;}
+  .auth-note{color:var(--muted);font-size:11px;margin-top:16px;line-height:1.5;}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="brand">
+      <svg viewBox="0 0 48 48" fill="none"><path d="M14 38c10 2 20-4 24-16 2-6 1-11-2-13-1 4-4 8-9 11-7 4-11 10-13 18z" fill="#ffc93c" stroke="#f2a900" stroke-width="1.5"/></svg>
+      <span class="brand-name">Bananas</span>
+    </div>
+    <div class="user-pill hidden" id="userPill">
+      <span class="u-name" id="userName"></span>
+      <div class="score-pill">
+        <svg viewBox="0 0 48 48" fill="none"><path d="M14 38c10 2 20-4 24-16 2-6 1-11-2-13-1 4-4 8-9 11-7 4-11 10-13 18z" fill="#ffc93c"/></svg>
+        <span id="scoreDisplay">0</span>
+      </div>
+      <button class="logout-btn" id="logoutBtn">Log out</button>
+    </div>
+  </div>
+</header>
+
+<div class="auth-wrap" id="authScreen">
+  <div class="auth-card">
+    <svg viewBox="0 0 48 48" fill="none"><path d="M14 38c10 2 20-4 24-16 2-6 1-11-2-13-1 4-4 8-9 11-7 4-11 10-13 18z" fill="#ffc93c" stroke="#f2a900" stroke-width="1.5"/></svg>
+    <h2 id="authTitle">Log in</h2>
+    <div class="sub" id="authSub">Pick up right where you left off.</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tabLogin">Log in</button>
+      <button class="auth-tab" id="tabSignup">Sign up</button>
+    </div>
+
+    <div class="field">
+      <label for="authUsername">Username</label>
+      <input id="authUsername" type="text" autocomplete="username" maxlength="20" placeholder="peel_master">
+    </div>
+    <div class="field">
+      <label for="authPassword">Password</label>
+      <input id="authPassword" type="password" autocomplete="current-password" placeholder="•••••••• (6+ characters)">
+    </div>
+
+    <button class="auth-submit" id="authSubmit">Log in</button>
+    <div class="auth-error" id="authError"></div>
+    <div class="auth-note">Your username is stored privately and never shown as an email anywhere.</div>
+  </div>
+</div>
+
+<main class="hidden" id="gameMain">
+  <h1 style="font-size:30px;color:var(--brown);">Click the banana.</h1>
+  <p class="tagline">Every click earns a peel. Every so often, a peel earns you something better.</p>
+
+  <div class="stage" id="stage">
+    <button class="banana-btn" id="bananaBtn" aria-label="Click the banana">
+      <svg viewBox="0 0 100 100" id="bananaSvg">
+        <path d="M28 82c22 4 44-9 52-34 4-13 2-24-4-28-2 9-9 17-20 24-15 9-24 21-28 38z"
+          fill="var(--skin-fill,#ffe066)" stroke="var(--skin-stroke,#f2a900)" stroke-width="3" stroke-linejoin="round"/>
+        <path d="M32 78c17 2 33-8 40-26" stroke="var(--skin-stroke,#f2a900)" stroke-width="2" opacity="0.5" fill="none"/>
+      </svg>
+    </button>
+  </div>
+  <div class="cps" id="cpsLabel">0 peels/sec</div>
+
+  <div class="collection wrap" style="padding:0;">
+    <h2>Skin collection</h2>
+    <p id="collectionSub">0 of 8 unlocked</p>
+    <div class="skin-grid" id="skinGrid"></div>
+  </div>
+</main>
+
+<div class="toast" id="toast">
+  <svg id="toastIcon" viewBox="0 0 100 100"></svg>
+  <div>
+    <div class="t-title" id="toastTitle">New skin!</div>
+    <div class="t-sub" id="toastSub"></div>
+  </div>
+</div>
+
+<footer>Bananas — a for-fun clicker with real accounts. No real currency, no purchases.</footer>
+
+<script>
+/* ================= FIREBASE SETUP ================= */
+const firebaseConfig = {
+  apiKey: "AIzaSyAdIwjIDwunk_LPdA3t-mmwVQ81CieyHyQ",
+  authDomain: "bananas-260a0.firebaseapp.com",
+  projectId: "bananas-260a0",
+  storageBucket: "bananas-260a0.firebasestorage.app",
+  messagingSenderId: "166666017632",
+  appId: "1:166666017632:web:6d4bc7e1dfa9556f5a5c05"
+};
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.firestore();
+
+// Usernames are turned into a fake internal email since Firebase Auth requires one.
+function usernameToEmail(username){
+  return `${username.trim().toLowerCase()}@bananas-game.local`;
+}
+
+/* ================= ICON LIBRARY ================= */
+const SKINS = [
+  {id:'classic', name:'Classic', fill:'#ffe066', stroke:'#f2a900', chance:0},
+  {id:'green', name:'Unripe', fill:'#b7e26a', stroke:'#7fae2e', chance:1/10000},
+  {id:'brown', name:'Overripe', fill:'#caa15a', stroke:'#8a6a2e', chance:1/13000},
+  {id:'pink', name:'Bubblegum', fill:'#ffb3c6', stroke:'#ff6f91', chance:1/25000},
+  {id:'blue', name:'Blueberry', fill:'#9ec5ff', stroke:'#5b8def', chance:1/45000},
+  {id:'purple', name:'Cosmic', fill:'#c9a3ff', stroke:'#8a4fff', chance:1/80000},
+  {id:'rainbow', name:'Prism', fill:'url(#rainbowGrad)', stroke:'#ffffff', chance:1/200000},
+  {id:'gold', name:'Golden', fill:'#ffd94a', stroke:'#c98f00', chance:1/1000000},
+];
+
+let score = 0;
+let unlockedSkins = new Set(['classic']);
+let currentSkin = SKINS[0];
+let currentUid = null;
+let lastSavedScore = 0;
+let recentClicks = [];
+
+const scoreDisplay = document.getElementById('scoreDisplay');
+const bananaBtn = document.getElementById('bananaBtn');
+const bananaSvg = document.getElementById('bananaSvg');
+const stage = document.getElementById('stage');
+const skinGrid = document.getElementById('skinGrid');
+const collectionSub = document.getElementById('collectionSub');
+const toast = document.getElementById('toast');
+const toastIcon = document.getElementById('toastIcon');
+const toastTitle = document.getElementById('toastTitle');
+const toastSub = document.getElementById('toastSub');
+const cpsLabel = document.getElementById('cpsLabel');
+
+const authScreen = document.getElementById('authScreen');
+const gameMain = document.getElementById('gameMain');
+const userPill = document.getElementById('userPill');
+const userName = document.getElementById('userName');
+const logoutBtn = document.getElementById('logoutBtn');
+const tabLogin = document.getElementById('tabLogin');
+const tabSignup = document.getElementById('tabSignup');
+const authTitle = document.getElementById('authTitle');
+const authSub = document.getElementById('authSub');
+const authUsername = document.getElementById('authUsername');
+const authPassword = document.getElementById('authPassword');
+const authSubmit = document.getElementById('authSubmit');
+const authError = document.getElementById('authError');
+
+let authMode = 'login';
+
+function setAuthMode(mode){
+  authMode = mode;
+  authError.textContent = '';
+  if(mode === 'login'){
+    tabLogin.classList.add('active'); tabSignup.classList.remove('active');
+    authTitle.textContent = 'Log in';
+    authSub.textContent = 'Pick up right where you left off.';
+    authSubmit.textContent = 'Log in';
+  } else {
+    tabSignup.classList.add('active'); tabLogin.classList.remove('active');
+    authTitle.textContent = 'Sign up';
+    authSub.textContent = 'Create a username to save your progress.';
+    authSubmit.textContent = 'Create account';
+  }
+}
+tabLogin.addEventListener('click', ()=>setAuthMode('login'));
+tabSignup.addEventListener('click', ()=>setAuthMode('signup'));
+
+async function handleAuthSubmit(){
+  const username = authUsername.value.trim();
+  const password = authPassword.value;
+  authError.textContent = '';
+
+  if(!username || username.length < 3){
+    authError.textContent = 'Username needs at least 3 characters.';
+    return;
+  }
+  if(!password || password.length < 6){
+    authError.textContent = 'Password needs at least 6 characters.';
+    return;
+  }
+
+  authSubmit.disabled = true;
+  authSubmit.textContent = authMode === 'login' ? 'Logging in…' : 'Creating account…';
+  const email = usernameToEmail(username);
+
+  try{
+    if(authMode === 'signup'){
+      const cred = await auth.createUserWithEmailAndPassword(email, password);
+      await db.collection('users').doc(cred.user.uid).set({
+        username: username.toLowerCase(),
+        score: 0,
+        unlockedSkins: ['classic'],
+      });
+    } else {
+      await auth.signInWithEmailAndPassword(email, password);
+    }
+    // onAuthStateChanged below handles loading state + showing the game
+  } catch(err){
+    console.error(err);
+    if(err.code === 'auth/email-already-in-use'){
+      authError.textContent = 'That username is taken. Try logging in instead.';
+    } else if(err.code === 'auth/invalid-credential' || err.code === 'auth/wrong-password'){
+      authError.textContent = 'Wrong username or password.';
+    } else if(err.code === 'auth/user-not-found'){
+      authError.textContent = "No account with that username yet — try signing up.";
+    } else {
+      authError.textContent = 'Something went wrong. Try again.';
+    }
+    authSubmit.disabled = false;
+    authSubmit.textContent = authMode === 'login' ? 'Log in' : 'Create account';
+  }
+}
+
+authSubmit.addEventListener('click', handleAuthSubmit);
+authPassword.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') handleAuthSubmit(); });
+authUsername.addEventListener('keydown', (e)=>{ if(e.key === 'Enter') handleAuthSubmit(); });
+
+logoutBtn.addEventListener('click', async ()=>{
+  await saveProgress();
+  await auth.signOut();
+});
+
+auth.onAuthStateChanged(async (user)=>{
+  if(user){
+    currentUid = user.uid;
+    const doc = await db.collection('users').doc(user.uid).get();
+    const data = doc.exists ? doc.data() : {score:0, unlockedSkins:['classic'], username:'player'};
+
+    score = data.score || 0;
+    lastSavedScore = score;
+    unlockedSkins = new Set(data.unlockedSkins && data.unlockedSkins.length ? data.unlockedSkins : ['classic']);
+    currentSkin = SKINS.find(s=>s.id === [...unlockedSkins].slice(-1)[0]) || SKINS[0];
+
+    authScreen.classList.add('hidden');
+    gameMain.classList.remove('hidden');
+    userPill.classList.remove('hidden');
+    userName.textContent = data.username || 'player';
+    scoreDisplay.textContent = score.toLocaleString();
+
+    applySkin(currentSkin);
+    renderCollection();
+
+    authSubmit.disabled = false;
+    authPassword.value = '';
+    authUsername.value = '';
+  } else {
+    currentUid = null;
+    gameMain.classList.add('hidden');
+    userPill.classList.add('hidden');
+    authScreen.classList.remove('hidden');
+    setAuthMode('login');
+  }
+});
+
+async function saveProgress(){
+  if(!currentUid) return;
+  try{
+    await db.collection('users').doc(currentUid).set({
+      score,
+      unlockedSkins: [...unlockedSkins],
+    }, { merge: true });
+    lastSavedScore = score;
+  } catch(err){
+    console.error('save failed', err);
+  }
+}
+window.addEventListener('beforeunload', ()=>{ if(currentUid) saveProgress(); });
+
+/* ================= GAME LOGIC ================= */
+function applySkin(skin){
+  bananaSvg.style.setProperty('--skin-fill', skin.fill.startsWith('url') ? '#ffe066' : skin.fill);
+  bananaSvg.style.setProperty('--skin-stroke', skin.stroke);
+  if(skin.fill.startsWith('url')){
+    ensureRainbowGrad();
+    bananaSvg.querySelector('path').setAttribute('fill','url(#rainbowGrad)');
+  } else {
+    bananaSvg.querySelector('path').removeAttribute('fill');
+  }
+}
+function ensureRainbowGrad(){
+  if(document.getElementById('rainbowGrad')) return;
+  const svgns = 'http://www.w3.org/2000/svg';
+  const defs = document.createElementNS(svgns,'defs');
+  defs.innerHTML = `<linearGradient id="rainbowGrad" x1="0" y1="0" x2="1" y2="1">
+    <stop offset="0%" stop-color="#ff8fa3"/><stop offset="25%" stop-color="#ffd94a"/>
+    <stop offset="50%" stop-color="#9ec5ff"/><stop offset="75%" stop-color="#c9a3ff"/>
+    <stop offset="100%" stop-color="#b7e26a"/>
+  </linearGradient>`;
+  bananaSvg.appendChild(defs);
+}
+function skinIconSvg(skin){
+  const fillVal = skin.fill.startsWith('url') ? `url(#g-${skin.id})` : skin.fill;
+  const gradDef = skin.fill.startsWith('url')
+    ? `<defs><linearGradient id="g-${skin.id}" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#ff8fa3"/><stop offset="33%" stop-color="#ffd94a"/>
+        <stop offset="66%" stop-color="#9ec5ff"/><stop offset="100%" stop-color="#c9a3ff"/>
+      </linearGradient></defs>` : '';
+  return `<svg viewBox="0 0 100 100">${gradDef}<path d="M28 82c22 4 44-9 52-34 4-13 2-24-4-28-2 9-9 17-20 24-15 9-24 21-28 38z" fill="${fillVal}" stroke="${skin.stroke}" stroke-width="4"/></svg>`;
+}
+function renderCollection(){
+  skinGrid.innerHTML = '';
+  let count = 0;
+  SKINS.forEach(skin=>{
+    const unlocked = unlockedSkins.has(skin.id);
+    if(unlocked) count++;
+    const card = document.createElement('div');
+    card.className = 'skin-card' + (unlocked ? '' : ' locked');
+    card.innerHTML = `${skinIconSvg(skin)}<div class="s-name ${unlocked ? '' : 'locked-text'}">${unlocked ? skin.name : '???'}</div>`;
+    if(unlocked){
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', ()=>{ currentSkin = skin; applySkin(skin); });
+    }
+    skinGrid.appendChild(card);
+  });
+  collectionSub.textContent = `${count} of ${SKINS.length} unlocked`;
+}
+function spawnParticle(x, y){
+  const p = document.createElement('div');
+  p.className = 'particle';
+  p.textContent = '+1';
+  p.style.left = (x - 10) + 'px';
+  p.style.top = (y - 10) + 'px';
+  stage.appendChild(p);
+  setTimeout(()=>p.remove(), 900);
+}
+function showToast(skin){
+  toastIcon.innerHTML = skinIconSvg(skin).replace('<svg viewBox="0 0 100 100">','').replace('</svg>','');
+  toastTitle.textContent = `New skin unlocked: ${skin.name}!`;
+  toastSub.textContent = 'Check your collection below';
+  toast.classList.add('show');
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=>toast.classList.remove('show'), 2600);
+}
+function maybeUnlockSkin(){
+  const locked = SKINS.filter(s=>!unlockedSkins.has(s.id));
+  if(locked.length === 0) return;
+  for(const skin of locked){
+    if(Math.random() < skin.chance){
+      unlockedSkins.add(skin.id);
+      renderCollection();
+      showToast(skin);
+      saveProgress();
+      break;
+    }
+  }
+}
+function updateCps(){
+  const now = Date.now();
+  recentClicks = recentClicks.filter(t => now - t < 3000);
+  cpsLabel.textContent = `${(recentClicks.length / 3).toFixed(1)} peels/sec`;
+}
+
+bananaBtn.addEventListener('click', ()=>{
+  if(!currentUid) return;
+  score++;
+  scoreDisplay.textContent = score.toLocaleString();
+  recentClicks.push(Date.now());
+  updateCps();
+
+  bananaBtn.classList.remove('bounce');
+  void bananaBtn.offsetWidth;
+  bananaBtn.classList.add('bounce');
+
+  const rect = stage.getBoundingClientRect();
+  const x = rect.width/2 + (Math.random()*40-20);
+  const y = rect.height/2 + (Math.random()*20-10);
+  spawnParticle(x, y);
+
+  maybeUnlockSkin();
+
+  if(score - lastSavedScore >= 50){
+    saveProgress();
+  }
+});
+</script>
+</body>
+</html>
