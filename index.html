@@ -183,6 +183,38 @@
   .friend-remove:hover{color:var(--pink);}
   .friends-empty{color:var(--muted);font-size:13px;margin-top:16px;}
 
+  .friends-btn{
+    background:var(--surface);border:2px solid var(--border);color:var(--brown);
+    font-family:'Nunito',sans-serif;font-weight:700;font-size:12px;
+    padding:8px 14px;border-radius:100px;cursor:pointer;
+    display:flex;align-items:center;gap:6px;
+  }
+  .friends-btn:hover{border-color:var(--yellow-deep);}
+  .friends-btn svg{width:16px;height:16px;}
+
+  .modal-overlay{
+    display:none;
+    position:fixed;inset:0;
+    background:rgba(58,46,26,0.45);
+    align-items:center;justify-content:center;
+    z-index:30;
+    padding:24px;
+  }
+  .modal-overlay.show{display:flex;}
+  .modal-card{
+    background:var(--surface);border:2px solid var(--border);border-radius:20px;
+    padding:28px;width:100%;max-width:420px;max-height:80vh;overflow-y:auto;
+    text-align:left;position:relative;
+  }
+  .modal-close{
+    position:absolute;top:18px;right:18px;
+    background:none;border:none;color:var(--muted);cursor:pointer;
+    font-size:20px;line-height:1;padding:4px;
+  }
+  .modal-close:hover{color:var(--pink);}
+  .modal-card h2{font-size:20px;color:var(--brown);}
+  .modal-card > p{color:var(--muted);font-size:13px;margin-top:4px;}
+
   .version-tag{
     position:fixed;top:10px;right:14px;
     color:var(--muted);font-size:11px;
@@ -240,6 +272,10 @@
         <svg viewBox="0 0 48 48" fill="none"><path d="M14 38c10 2 20-4 24-16 2-6 1-11-2-13-1 4-4 8-9 11-7 4-11 10-13 18z" fill="#ffc93c"/></svg>
         <span id="scoreDisplay">0</span>
       </div>
+      <button class="friends-btn" id="openFriendsBtn">
+        <svg viewBox="0 0 48 48" fill="none"><circle cx="18" cy="18" r="7" stroke="currentColor" stroke-width="2.4"/><path d="M6 40c1-8 6-13 12-13s11 5 12 13" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="34" cy="16" r="5" stroke="currentColor" stroke-width="2.2" opacity="0.6"/><path d="M28 40c1-6 4-10 8-11" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" opacity="0.6"/></svg>
+        Friends
+      </button>
       <button class="logout-btn" id="logoutBtn">Log out</button>
     </div>
   </div>
@@ -291,8 +327,11 @@
     <p id="collectionSub">0 of 8 unlocked</p>
     <div class="skin-grid" id="skinGrid"></div>
   </div>
+</main>
 
-  <div class="friends wrap" style="padding:0;">
+<div class="modal-overlay" id="friendsModal">
+  <div class="modal-card">
+    <button class="modal-close" id="closeFriendsBtn" aria-label="Close">✕</button>
     <h2>Friends</h2>
     <p>Add someone by username to see their peel count and skins.</p>
     <div class="friend-add">
@@ -303,7 +342,7 @@
     <div class="friends-empty hidden" id="friendsEmpty">No friends added yet.</div>
     <div class="friend-list" id="friendList"></div>
   </div>
-</main>
+</div>
 
 <div class="toast" id="toast">
   <svg id="toastIcon" viewBox="0 0 100 100"></svg>
@@ -370,7 +409,19 @@ const addFriendBtn = document.getElementById('addFriendBtn');
 const friendError = document.getElementById('friendError');
 const friendList = document.getElementById('friendList');
 const friendsEmpty = document.getElementById('friendsEmpty');
+const friendsModal = document.getElementById('friendsModal');
+const openFriendsBtn = document.getElementById('openFriendsBtn');
+const closeFriendsBtn = document.getElementById('closeFriendsBtn');
 let myFriendUids = [];
+
+openFriendsBtn.addEventListener('click', ()=>{
+  friendsModal.classList.add('show');
+  renderFriends();
+});
+closeFriendsBtn.addEventListener('click', ()=>friendsModal.classList.remove('show'));
+friendsModal.addEventListener('click', (e)=>{
+  if(e.target === friendsModal) friendsModal.classList.remove('show');
+});
 
 const authScreen = document.getElementById('authScreen');
 const gameMain = document.getElementById('gameMain');
