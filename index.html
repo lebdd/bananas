@@ -651,6 +651,7 @@
     <button class="modal-close" id="closeTradesBtn" aria-label="Close">✕</button>
     <h2>Trades</h2>
     <p>Offers to swap skins with friends.</p>
+    <div class="friend-error" id="tradesError"></div>
 
     <div class="friend-section-title">Incoming offers</div>
     <div class="friends-empty hidden" id="incomingTradesEmpty">No incoming offers.</div>
@@ -706,6 +707,24 @@
         </div>
       </div>
 
+      <div class="staff-action">
+        <label>Remove skin</label>
+        <div class="staff-action-row">
+          <select id="staffRemoveSkinSelect"></select>
+          <button id="staffRemoveSkinBtn">Remove</button>
+        </div>
+      </div>
+
+      <div class="staff-action">
+        <label>Set peels to exact amount</label>
+        <div class="staff-action-row">
+          <input id="staffSetPeelsInput" type="number" min="0" placeholder="amount">
+          <button id="staffSetPeelsBtn">Set</button>
+        </div>
+      </div>
+
+      <button class="staff-ban-btn" id="staffTradeLockBtn">Lock this user from trading</button>
+      <button class="staff-ban-btn" id="staffResetCooldownBtn" style="border-color:var(--yellow-deep);color:var(--yellow-deep);">Reset minigame cooldown</button>
       <button class="staff-ban-btn" id="staffBanBtn">Ban this user</button>
     </div>
   </div>
@@ -829,6 +848,7 @@ const incomingTradesEmpty = document.getElementById('incomingTradesEmpty');
 const outgoingTradesList = document.getElementById('outgoingTradesList');
 const outgoingTradesEmpty = document.getElementById('outgoingTradesEmpty');
 const tradesBadge = document.getElementById('tradesBadge');
+const tradesError = document.getElementById('tradesError');
 
 const openInventoryBtn = document.getElementById('openInventoryBtn');
 const inventoryModal = document.getElementById('inventoryModal');
@@ -850,6 +870,12 @@ const staffGivePeelsBtn = document.getElementById('staffGivePeelsBtn');
 const staffSkinSelect = document.getElementById('staffSkinSelect');
 const staffGiveSkinBtn = document.getElementById('staffGiveSkinBtn');
 const staffBanBtn = document.getElementById('staffBanBtn');
+const staffRemoveSkinSelect = document.getElementById('staffRemoveSkinSelect');
+const staffRemoveSkinBtn = document.getElementById('staffRemoveSkinBtn');
+const staffSetPeelsInput = document.getElementById('staffSetPeelsInput');
+const staffSetPeelsBtn = document.getElementById('staffSetPeelsBtn');
+const staffTradeLockBtn = document.getElementById('staffTradeLockBtn');
+const staffResetCooldownBtn = document.getElementById('staffResetCooldownBtn');
 
 const minigamePanel = document.getElementById('minigamePanel');
 const minigamePlayBtn = document.getElementById('minigamePlayBtn');
@@ -872,6 +898,7 @@ let nextMinigameAt = 0;
 let minigameTimerInterval = null;
 let activeMinigameCleanup = null;
 let claimedLogoBonus = false;
+let myTradingLocked = false;
 
 function stopWatchingProfile(){
   if(profileUnsubscribe){
@@ -1031,6 +1058,7 @@ auth.onAuthStateChanged(async (user)=>{
     minigamePanel.classList.remove('hidden');
     startMinigameTimer();
     claimedLogoBonus = !!data.claimedLogoBonus;
+    myTradingLocked = !!data.tradingLocked;
 
     authScreen.classList.add('hidden');
     gameMain.classList.remove('hidden');
@@ -1404,6 +1432,15 @@ function openTradeComposer(){
   tradeComposerError.textContent = '';
   tradeComposerSub.textContent = `Trade with ${viewingFriendData.username || 'this player'}.`;
 
+  if(myTradingLocked){
+    offerSkinSelect.innerHTML = '';
+    requestSkinSelect.innerHTML = '';
+    tradeComposerError.textContent = 'A staff member has restricted your account from trading.';
+    sendTradeBtn.disabled = true;
+    tradeComposerModal.classList.add('show');
+    return;
+  }
+
   const friendUnlocked = new Set(viewingFriendData.unlockedSkins && viewingFriendData.unlockedSkins.length ? viewingFriendData.unlockedSkins : ['classic']);
 
   // Skins I can offer: mine, not classic, and they don't already have it.
@@ -1609,6 +1646,10 @@ async function updateTradeBadge(){
 }
 
 async function acceptTrade(tradeId){
+  if(myTradingLocked){
+    tradesError.textContent = 'A staff member has restricted your account from trading.';
+    return;
+  }
   try{
     await db.collection('tradeOffers').doc(tradeId).update({ status: 'accepted' });
     refreshTrades();
@@ -1628,6 +1669,7 @@ async function declineTrade(tradeId){
 }
 
 openTradesBtn.addEventListener('click', ()=>{
+  tradesError.textContent = '';
   tradesModal.classList.add('show');
   refreshTrades();
 });
@@ -1726,10 +1768,39 @@ function renderStaffResult(){
   staffResultName.textContent = staffTargetData.username || 'player';
   staffResultStaffTag.classList.toggle('hidden', !staffTargetData.isStaff);
   const skinCount = (staffTargetData.unlockedSkins || ['classic']).length;
-  staffResultStats.textContent = `${(staffTargetData.score || 0).toLocaleString()} peels · ${skinCount} of ${SKINS.length} skins${staffTargetData.banned ? ' · BANNED' : ''}`;
+  staffResultStats.textContent = `${(staffTargetData.score || 0).toLocaleString()} peels · ${skinCount} of ${SKINS.length} skins${staffTargetData.banned ? ' · BANNED' : ''}${staffTargetData.tradingLocked ? ' · TRADE LOCKED' : ''}`;
+
   staffBanBtn.textContent = staffTargetData.banned ? 'Unban this user' : 'Ban this user';
   staffBanBtn.classList.toggle('unban', !!staffTargetData.banned);
+
+  staffTradeLockBtn.textContent = staffTargetData.tradingLocked ? 'Unlock trading for this user' : 'Lock this user from trading';
+  staffTradeLockBtn.classList.toggle('unban', !!staffTargetData.tradingLocked);
+
+  staffRemoveSkinSelect.innerHTML = '';
+  const owned = (staffTargetData.unlockedSkins || ['classic']).filter(id => id !== 'classic');
+  owned.forEach(id => {
+    const skin = SKINS.find(s => s.id === id);
+    if(skin) staffRemoveSkinSelect.appendChild(new Option(skin.name, skin.id));
+  });
+  staffRemoveSkinBtn.disabled = owned.length === 0;
+
   staffResult.classList.remove('hidden');
+}
+
+// If the staff member targets their own account, keep the live game state
+// (score, skins, etc.) in sync too — otherwise the next autosave would
+// silently overwrite whatever was just given/removed.
+function syncSelfFromStaffTarget(){
+  if(staffTargetUid !== currentUid) return;
+  score = staffTargetData.score || 0;
+  scoreDisplay.textContent = score.toLocaleString();
+  unlockedSkins = new Set(staffTargetData.unlockedSkins && staffTargetData.unlockedSkins.length ? staffTargetData.unlockedSkins : ['classic']);
+  if(!unlockedSkins.has(currentSkin.id)){
+    currentSkin = SKINS[0];
+    applySkin(currentSkin);
+  }
+  renderCollection();
+  myTradingLocked = !!staffTargetData.tradingLocked;
 }
 
 staffGivePeelsBtn.addEventListener('click', async ()=>{
@@ -1744,12 +1815,33 @@ staffGivePeelsBtn.addEventListener('click', async ()=>{
       score: firebase.firestore.FieldValue.increment(amount),
     });
     staffTargetData.score = (staffTargetData.score || 0) + amount;
+    syncSelfFromStaffTarget();
     renderStaffResult();
     staffPeelsInput.value = '';
     staffError.textContent = '';
   } catch(err){
     console.error(err);
     staffError.textContent = 'Failed to give peels.';
+  }
+});
+
+staffSetPeelsBtn.addEventListener('click', async ()=>{
+  if(!myIsStaff || !staffTargetUid) return;
+  const amount = parseInt(staffSetPeelsInput.value, 10);
+  if(isNaN(amount) || amount < 0){
+    staffError.textContent = 'Enter a valid non-negative number.';
+    return;
+  }
+  try{
+    await db.collection('users').doc(staffTargetUid).update({ score: amount });
+    staffTargetData.score = amount;
+    syncSelfFromStaffTarget();
+    renderStaffResult();
+    staffSetPeelsInput.value = '';
+    staffError.textContent = '';
+  } catch(err){
+    console.error(err);
+    staffError.textContent = 'Failed to set peels.';
   }
 });
 
@@ -1763,11 +1855,62 @@ staffGiveSkinBtn.addEventListener('click', async ()=>{
     });
     if(!staffTargetData.unlockedSkins) staffTargetData.unlockedSkins = ['classic'];
     if(!staffTargetData.unlockedSkins.includes(skinId)) staffTargetData.unlockedSkins.push(skinId);
+    syncSelfFromStaffTarget();
     renderStaffResult();
     staffError.textContent = '';
   } catch(err){
     console.error(err);
     staffError.textContent = 'Failed to give skin.';
+  }
+});
+
+staffRemoveSkinBtn.addEventListener('click', async ()=>{
+  if(!myIsStaff || !staffTargetUid) return;
+  const skinId = staffRemoveSkinSelect.value;
+  if(!skinId) return;
+  try{
+    await db.collection('users').doc(staffTargetUid).update({
+      unlockedSkins: firebase.firestore.FieldValue.arrayRemove(skinId),
+    });
+    if(staffTargetData.unlockedSkins){
+      staffTargetData.unlockedSkins = staffTargetData.unlockedSkins.filter(id => id !== skinId);
+    }
+    syncSelfFromStaffTarget();
+    renderStaffResult();
+    staffError.textContent = '';
+  } catch(err){
+    console.error(err);
+    staffError.textContent = 'Failed to remove skin.';
+  }
+});
+
+staffTradeLockBtn.addEventListener('click', async ()=>{
+  if(!myIsStaff || !staffTargetUid) return;
+  const newLocked = !staffTargetData.tradingLocked;
+  try{
+    await db.collection('users').doc(staffTargetUid).update({ tradingLocked: newLocked });
+    staffTargetData.tradingLocked = newLocked;
+    syncSelfFromStaffTarget();
+    renderStaffResult();
+    staffError.textContent = '';
+  } catch(err){
+    console.error(err);
+    staffError.textContent = 'Failed to update trading lock.';
+  }
+});
+
+staffResetCooldownBtn.addEventListener('click', async ()=>{
+  if(!myIsStaff || !staffTargetUid) return;
+  try{
+    await db.collection('users').doc(staffTargetUid).update({ nextMinigameAt: 0 });
+    if(staffTargetUid === currentUid){
+      nextMinigameAt = 0;
+      updateMinigamePanel();
+    }
+    staffError.textContent = '';
+  } catch(err){
+    console.error(err);
+    staffError.textContent = 'Failed to reset cooldown.';
   }
 });
 
