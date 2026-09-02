@@ -725,6 +725,7 @@
 
       <button class="staff-ban-btn" id="staffTradeLockBtn">Lock this user from trading</button>
       <button class="staff-ban-btn" id="staffResetCooldownBtn" style="border-color:var(--yellow-deep);color:var(--yellow-deep);">Reset minigame cooldown</button>
+      <button class="staff-ban-btn" id="staffGrantStaffBtn" style="border-color:#8847ff;color:#8847ff;">Grant staff</button>
       <button class="staff-ban-btn" id="staffBanBtn">Ban this user</button>
     </div>
   </div>
@@ -876,6 +877,7 @@ const staffSetPeelsInput = document.getElementById('staffSetPeelsInput');
 const staffSetPeelsBtn = document.getElementById('staffSetPeelsBtn');
 const staffTradeLockBtn = document.getElementById('staffTradeLockBtn');
 const staffResetCooldownBtn = document.getElementById('staffResetCooldownBtn');
+const staffGrantStaffBtn = document.getElementById('staffGrantStaffBtn');
 
 const minigamePanel = document.getElementById('minigamePanel');
 const minigamePlayBtn = document.getElementById('minigamePlayBtn');
@@ -1784,6 +1786,12 @@ function renderStaffResult(){
   });
   staffRemoveSkinBtn.disabled = owned.length === 0;
 
+  const isSelf = staffTargetUid === currentUid;
+  staffGrantStaffBtn.textContent = staffTargetData.isStaff ? 'Revoke staff' : 'Grant staff';
+  staffGrantStaffBtn.classList.toggle('unban', !!staffTargetData.isStaff);
+  staffGrantStaffBtn.disabled = isSelf;
+  staffGrantStaffBtn.title = isSelf ? "You can't change your own staff status here." : '';
+
   staffResult.classList.remove('hidden');
 }
 
@@ -1911,6 +1919,25 @@ staffResetCooldownBtn.addEventListener('click', async ()=>{
   } catch(err){
     console.error(err);
     staffError.textContent = 'Failed to reset cooldown.';
+  }
+});
+
+staffGrantStaffBtn.addEventListener('click', async ()=>{
+  if(!myIsStaff || !staffTargetUid || staffTargetUid === currentUid) return;
+  const newStaff = !staffTargetData.isStaff;
+  const confirmMsg = newStaff
+    ? `Grant staff access to ${staffTargetData.username}? They'll be able to manage other accounts.`
+    : `Revoke staff access from ${staffTargetData.username}?`;
+  if(!window.confirm(confirmMsg)) return;
+
+  try{
+    await db.collection('users').doc(staffTargetUid).update({ isStaff: newStaff });
+    staffTargetData.isStaff = newStaff;
+    renderStaffResult();
+    staffError.textContent = '';
+  } catch(err){
+    console.error(err);
+    staffError.textContent = 'Failed to update staff status.';
   }
 });
 
