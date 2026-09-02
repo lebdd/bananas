@@ -984,7 +984,11 @@ async function handleAuthSubmit(){
   const password = authPassword.value;
   authError.textContent = '';
 
-  if(!username || username.length < 3){
+  if(!username){
+    authError.textContent = 'Enter a username.';
+    return;
+  }
+  if(authMode === 'signup' && username.length < 3){
     authError.textContent = 'Username needs at least 3 characters.';
     return;
   }
