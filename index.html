@@ -393,6 +393,18 @@
     z-index:5;
   }
 
+  .settings-fab{
+    position:fixed;top:20px;right:20px;
+    width:38px;height:38px;
+    background:var(--surface);border:2px solid var(--border);border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    cursor:pointer;z-index:9;
+    color:var(--brown);
+  }
+  .settings-fab:hover{border-color:var(--yellow-deep);}
+  .settings-fab svg{width:18px;height:18px;}
+  .field-success{color:var(--yellow-deep) !important;}
+
   .minigame-panel{
     position:fixed;left:24px;top:50%;transform:translateY(-50%);
     background:var(--surface);border:2px solid var(--border);border-radius:16px;
@@ -476,6 +488,10 @@
 <body>
 
 <span class="version-tag">v1.1</span>
+
+<button class="settings-fab hidden" id="openSettingsBtn" aria-label="Settings">
+  <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="6" stroke="currentColor" stroke-width="2.4"/><path d="M24 6v5M24 37v5M6 24h5M37 24h5M11 11l3.5 3.5M33.5 33.5L37 37M37 11l-3.5 3.5M14.5 33.5L11 37" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+</button>
 
 <div class="minigame-panel hidden" id="minigamePanel">
   <div class="mg-icon">🎮</div>
@@ -739,6 +755,38 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="settingsModal">
+  <div class="modal-card">
+    <button class="modal-close" id="closeSettingsBtn" aria-label="Close">✕</button>
+    <h2>Settings</h2>
+    <p>Manage your account. Both changes require your current password.</p>
+
+    <div class="friend-section-title" style="margin-top:8px;">Change username</div>
+    <div class="field">
+      <label for="settingsUsernamePassword">Current password</label>
+      <input id="settingsUsernamePassword" type="password" placeholder="••••••••">
+    </div>
+    <div class="field">
+      <label for="settingsNewUsername">New username</label>
+      <input id="settingsNewUsername" type="text" maxlength="20" placeholder="new_username">
+    </div>
+    <div class="friend-error" id="settingsUsernameError"></div>
+    <button class="auth-submit" id="settingsUsernameBtn">Update username</button>
+
+    <div class="friend-section-title">Change password</div>
+    <div class="field">
+      <label for="settingsPasswordCurrent">Current password</label>
+      <input id="settingsPasswordCurrent" type="password" placeholder="••••••••">
+    </div>
+    <div class="field">
+      <label for="settingsPasswordNew">New password</label>
+      <input id="settingsPasswordNew" type="password" placeholder="•••••••• (6+ characters)">
+    </div>
+    <div class="friend-error" id="settingsPasswordError"></div>
+    <button class="auth-submit" id="settingsPasswordBtn">Update password</button>
+  </div>
+</div>
+
 <div class="toast" id="toast">
   <svg id="toastIcon" viewBox="0 0 100 100"></svg>
   <div>
@@ -886,6 +934,18 @@ const minigameModal = document.getElementById('minigameModal');
 const closeMinigameBtn = document.getElementById('closeMinigameBtn');
 const minigameTitle = document.getElementById('minigameTitle');
 const minigameStage = document.getElementById('minigameStage');
+
+const openSettingsBtn = document.getElementById('openSettingsBtn');
+const settingsModal = document.getElementById('settingsModal');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const settingsUsernamePassword = document.getElementById('settingsUsernamePassword');
+const settingsNewUsername = document.getElementById('settingsNewUsername');
+const settingsUsernameError = document.getElementById('settingsUsernameError');
+const settingsUsernameBtn = document.getElementById('settingsUsernameBtn');
+const settingsPasswordCurrent = document.getElementById('settingsPasswordCurrent');
+const settingsPasswordNew = document.getElementById('settingsPasswordNew');
+const settingsPasswordError = document.getElementById('settingsPasswordError');
+const settingsPasswordBtn = document.getElementById('settingsPasswordBtn');
 
 let myUsername = 'player';
 let myBetaTag = false;
@@ -1065,6 +1125,7 @@ auth.onAuthStateChanged(async (user)=>{
     startMinigameTimer();
     claimedLogoBonus = !!data.claimedLogoBonus;
     myTradingLocked = !!data.tradingLocked;
+    openSettingsBtn.classList.remove('hidden');
 
     authScreen.classList.add('hidden');
     gameMain.classList.remove('hidden');
@@ -1083,6 +1144,7 @@ auth.onAuthStateChanged(async (user)=>{
     currentUid = null;
     myIsStaff = false;
     openStaffBtn.classList.add('hidden');
+    openSettingsBtn.classList.add('hidden');
     minigamePanel.classList.add('hidden');
     if(minigameTimerInterval){ clearInterval(minigameTimerInterval); minigameTimerInterval = null; }
     gameMain.classList.add('hidden');
@@ -2351,6 +2413,130 @@ minigameModal.addEventListener('click', (e)=>{
 });
 
 /* ================= SECRET LOGO BONUS ================= */
+/* ================= SETTINGS ================= */
+function resetSettingsForm(){
+  settingsUsernamePassword.value = '';
+  settingsNewUsername.value = '';
+  settingsUsernameError.textContent = '';
+  settingsUsernameError.classList.remove('field-success');
+  settingsPasswordCurrent.value = '';
+  settingsPasswordNew.value = '';
+  settingsPasswordError.textContent = '';
+  settingsPasswordError.classList.remove('field-success');
+}
+
+openSettingsBtn.addEventListener('click', ()=>{
+  resetSettingsForm();
+  settingsModal.classList.add('show');
+});
+closeSettingsBtn.addEventListener('click', ()=>settingsModal.classList.remove('show'));
+settingsModal.addEventListener('click', (e)=>{
+  if(e.target === settingsModal) settingsModal.classList.remove('show');
+});
+
+async function reauthenticate(currentPassword){
+  const user = auth.currentUser;
+  const email = usernameToEmail(myUsername);
+  const cred = firebase.auth.EmailAuthProvider.credential(email, currentPassword);
+  await user.reauthenticateWithCredential(cred);
+}
+
+function describeAuthError(err){
+  if(err.code === 'auth/wrong-password' || err.code === 'auth/invalid-credential'){
+    return 'Wrong current password.';
+  }
+  if(err.code === 'auth/email-already-in-use'){
+    return 'That username is taken.';
+  }
+  if(err.code === 'auth/too-many-requests'){
+    return 'Too many attempts — try again in a bit.';
+  }
+  return 'Something went wrong. Try again.';
+}
+
+settingsUsernameBtn.addEventListener('click', async ()=>{
+  settingsUsernameError.classList.remove('field-success');
+  settingsUsernameError.textContent = '';
+  const currentPassword = settingsUsernamePassword.value;
+  const newUsername = settingsNewUsername.value.trim().toLowerCase();
+
+  if(!currentPassword){
+    settingsUsernameError.textContent = 'Enter your current password.';
+    return;
+  }
+  if(!newUsername || newUsername.length < 3){
+    settingsUsernameError.textContent = 'New username needs at least 3 characters.';
+    return;
+  }
+  if(newUsername === myUsername){
+    settingsUsernameError.textContent = "That's already your username.";
+    return;
+  }
+
+  settingsUsernameBtn.disabled = true;
+  try{
+    await reauthenticate(currentPassword);
+
+    const existing = await db.collection('users').where('username', '==', newUsername).limit(1).get();
+    if(!existing.empty){
+      settingsUsernameError.textContent = 'That username is taken.';
+      return;
+    }
+
+    const newEmail = usernameToEmail(newUsername);
+    await auth.currentUser.updateEmail(newEmail);
+    await db.collection('users').doc(currentUid).set({ username: newUsername }, { merge: true });
+
+    myUsername = newUsername;
+    userName.textContent = myUsername;
+    settingsUsernameError.classList.add('field-success');
+    settingsUsernameError.textContent = 'Username updated!';
+    settingsUsernamePassword.value = '';
+    settingsNewUsername.value = '';
+  } catch(err){
+    console.error(err);
+    settingsUsernameError.textContent = describeAuthError(err);
+  } finally {
+    settingsUsernameBtn.disabled = false;
+  }
+});
+
+settingsPasswordBtn.addEventListener('click', async ()=>{
+  settingsPasswordError.classList.remove('field-success');
+  settingsPasswordError.textContent = '';
+  const currentPassword = settingsPasswordCurrent.value;
+  const newPassword = settingsPasswordNew.value;
+
+  if(!currentPassword){
+    settingsPasswordError.textContent = 'Enter your current password.';
+    return;
+  }
+  if(!newPassword || newPassword.length < 6){
+    settingsPasswordError.textContent = 'New password needs at least 6 characters.';
+    return;
+  }
+  if(newPassword === currentPassword){
+    settingsPasswordError.textContent = 'New password must be different from the current one.';
+    return;
+  }
+
+  settingsPasswordBtn.disabled = true;
+  try{
+    await reauthenticate(currentPassword);
+    await auth.currentUser.updatePassword(newPassword);
+
+    settingsPasswordError.classList.add('field-success');
+    settingsPasswordError.textContent = 'Password updated!';
+    settingsPasswordCurrent.value = '';
+    settingsPasswordNew.value = '';
+  } catch(err){
+    console.error(err);
+    settingsPasswordError.textContent = describeAuthError(err);
+  } finally {
+    settingsPasswordBtn.disabled = false;
+  }
+});
+
 logoSecretBtn.addEventListener('click', async ()=>{
   if(!currentUid || claimedLogoBonus) return;
   claimedLogoBonus = true;
